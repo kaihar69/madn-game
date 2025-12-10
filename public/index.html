@@ -9,14 +9,13 @@
 <body>
     <h1>Mensch ärgere dich nicht</h1>
     
-    <h3 id="my-status">Verbinde...</h3>
-    
-    <div id="turn-indicator">
-        Aktueller Zug: <span id="current-player-name">Warten...</span>
+    <div id="header-info">
+        <span id="my-status">Verbinde...</span> | 
+        <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
     </div>
 
     <div id="setup-controls">
-        <button id="startWithBotsBtn" class="bot-btn">Spiel starten (+ Bots)</button>
+        <button id="startWithBotsBtn" class="bot-btn">Start (+ Bots)</button>
     </div>
 
     <div class="board-wrapper">
@@ -38,11 +37,10 @@
         </div>
         
         <button id="rollBtn" disabled>Warten...</button>
-        <div id="diceTextResult"></div> </div>
+    </div>
 
     <div id="log-container"></div>
-
-    <div id="version-tag">V1.5 (Mobile & 3D)</div>
+    <div id="version-tag">V1.6 (Mobile Polish)</div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
