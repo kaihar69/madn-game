@@ -15,12 +15,15 @@ const pathMap = [
     {x:3, y:6}, {x:2, y:6}, {x:1, y:6}, {x:0, y:6},             
     {x:0, y:5}                                                  
 ];
+
+// HIER WURDE GETAUSCHT: Grün nach unten rechts, Gelb nach unten links
 const basePositions = {
-    'red':   [{x:0, y:0}, {x:1, y:0}, {x:0, y:1}, {x:1, y:1}],
-    'blue':  [{x:9, y:0}, {x:10, y:0}, {x:9, y:1}, {x:10, y:1}],
-    'green': [{x:0, y:9}, {x:1, y:9}, {x:0, y:10}, {x:1, y:10}],
-    'yellow':[{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}]
+    'red':   [{x:0, y:0}, {x:1, y:0}, {x:0, y:1}, {x:1, y:1}],     // Oben Links
+    'blue':  [{x:9, y:0}, {x:10, y:0}, {x:9, y:1}, {x:10, y:1}],   // Oben Rechts
+    'green': [{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}], // Unten Rechts (War vorher links)
+    'yellow':[{x:0, y:9}, {x:1, y:9}, {x:0, y:10}, {x:1, y:10}]    // Unten Links (War vorher rechts)
 };
+
 const targetPositions = {
     'red':   [{x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}],
     'blue':  [{x:5, y:1}, {x:5, y:2}, {x:5, y:3}, {x:5, y:4}],
@@ -44,7 +47,6 @@ function initBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             
-            // Logik: Ist es Pfad, Base oder Ziel?
             let isSomething = false;
 
             // Pfad + Startfelder
@@ -58,24 +60,23 @@ function initBoard() {
                 isSomething = true;
             }
             
-            // Basen
+            // Basen (Ebenfalls getauscht für die korrekte Färbung)
             if (x < 4 && y < 4) { cell.classList.add('base-red'); isSomething = true; }
             if (x > 6 && y < 4) { cell.classList.add('base-blue'); isSomething = true; }
-            if (x < 4 && y > 6) { cell.classList.add('base-green'); isSomething = true; }
-            if (x > 6 && y > 6) { cell.classList.add('base-yellow'); isSomething = true; }
+            
+            // HIER KORRIGIERT:
+            if (x > 6 && y > 6) { cell.classList.add('base-green'); isSomething = true; } // Unten Rechts = Grün
+            if (x < 4 && y > 6) { cell.classList.add('base-yellow'); isSomething = true; } // Unten Links = Gelb
 
-            // Ziele (für die Optik) - Wir prüfen ob x/y in targets liegen
+            // Ziele
             Object.values(targetPositions).forEach(arr => {
                 if(arr.some(p => p.x === x && p.y === y)) {
-                    // Für die Optik färben wir Ziele leicht ein oder lassen sie weiß
                     cell.classList.add('path'); 
-                    cell.style.borderColor = "#666"; // Dunklerer Rand für Ziele
+                    cell.style.borderColor = "#666"; 
                     isSomething = true;
                 }
             });
 
-            // Wenn es NICHTS ist (Mitte oder Rand), lassen wir es dunkel (CSS default)
-            // aber wir geben die ID trotzdem
             cell.id = `cell-${x}-${y}`;
             boardElement.appendChild(cell);
         }
