@@ -5,10 +5,10 @@ body {
     align-items: center;
     color: #333;
     
-    /* NEU: Dezent gepunkteter Hintergrund (angedeutete Spielfiguren) */
+    /* Dezent gepunkteter Hintergrund (angedeutete Spielfiguren) */
     background-color: #e0e0e0;
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 12px, transparent 13px);
-    background-size: 50px 50px; /* Abstand des Musters */
+    background-size: 50px 50px; 
 }
 
 h1 { margin-bottom: 5px; }
@@ -51,7 +51,6 @@ h1 { margin-bottom: 5px; }
 /* Das Board */
 .board-container {
     margin: 10px;
-    /* Stärkerer Schatten damit es sich vom neuen Hintergrund abhebt */
     box-shadow: 0 20px 40px rgba(0,0,0,0.3); 
 }
 
@@ -66,13 +65,17 @@ h1 { margin-bottom: 5px; }
     border-radius: 8px;
 }
 
+/* HIER IST DER FIX */
 .cell {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     position: relative;
     background-color: #333; 
-    border: none;
+    
+    /* WICHTIG: Sorgt dafür, dass der Rahmen IN die 40px eingerechnet wird,
+       statt das Feld größer zu machen. */
+    box-sizing: border-box;
 }
 
 /* Sichtbare Felder (Pfad) */
@@ -93,7 +96,7 @@ h1 { margin-bottom: 5px; }
 .base-green { background-color: #ccffcc; }
 .base-yellow { background-color: #ffffcc; }
 
-/* NEU: Zielfelder Farben (Parkhaus) - Heller mit farbigem Rand */
+/* Zielfelder Farben (Parkhaus) */
 .target-red { background-color: #ffebee; border: 2px solid #d32f2f; }
 .target-blue { background-color: #e3f2fd; border: 2px solid #1976d2; }
 .target-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
