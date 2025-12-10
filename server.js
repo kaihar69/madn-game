@@ -16,7 +16,8 @@ let turnIndex = 0;
 let gameRunning = false;
 
 io.on('connection', (socket) => {
-    // ... (Verbindungslogik wie gehabt)
+    console.log('Verbunden:', socket.id);
+
     if (Object.keys(players).length < 4 && !gameRunning) {
         const color = getColor(Object.keys(players).length);
         players[socket.id] = { id: socket.id, color: color, pieces: [-1, -1, -1, -1], isBot: false, lastRoll: null, rollCount: 0 };
@@ -49,13 +50,11 @@ io.on('connection', (socket) => {
         const player = players[socket.id];
         if (!player || player.color !== TURN_ORDER[turnIndex] || !player.lastRoll) return;
         
-        // ZWANGSRÄUMEN PRÜFUNG für Menschen
-        // Wenn Zwang besteht, darf nur die Zwang-Figur bewegt werden
+        // Zwangszug Check
         const forcedIndex = getForcedMoveIndex(player);
         if (forcedIndex !== -1 && data.pieceIndex !== forcedIndex) {
-            // Wenn der Spieler eine andere Figur klickt als die erzwungene:
             socket.emit('gameLog', "Zwangszug! Du musst den Startplatz räumen!");
-            return; // Klick ignorieren
+            return; 
         }
 
         const rolledSix = (player.lastRoll === 6);
@@ -106,24 +105,14 @@ function handleRoll(player) {
     }
 }
 
-// ZWANGSZUG HELPER
 function getForcedMoveIndex(player) {
-    // 1. Habe ich noch Figuren im Haus?
     const hasInHouse = player.pieces.some(p => p === -1);
-    if (!hasInHouse) return -1; // Nein -> Kein Zwang
-
-    // 2. Habe ich eine Figur auf meinem Startfeld?
+    if (!hasInHouse) return -1; 
     const startPos = START_OFFSETS[player.color];
     const indexOnStart = player.pieces.findIndex(p => p === startPos);
-    
-    if (indexOnStart === -1) return -1; // Niemand auf Start -> Kein Zwang
-
-    // 3. Kann diese Figur überhaupt ziehen? (Nicht blockiert)
-    if (isMoveValid(player, indexOnStart, player.lastRoll)) {
-        return indexOnStart; // JA! Das ist der Index, der gezogen werden MUSS.
-    }
-
-    return -1; // Figur auf Start ist blockiert -> Kein Zwang
+    if (indexOnStart === -1) return -1; 
+    if (isMoveValid(player, indexOnStart, player.lastRoll)) return indexOnStart; 
+    return -1; 
 }
 
 function tryMove(player, pieceIndex) {
@@ -182,55 +171,49 @@ function isMoveValid(player, pieceIndex, roll) {
         const entryPoint = ENTRY_POINTS[player.color];
         const distanceToEntry = (entryPoint - currentPos + 40) % 40;
         if (distanceToEntry < roll) {
+            // Ins Ziel gehen
             const stepsIntoTarget = roll - distanceToEntry - 1;
             if (stepsIntoTarget > 3 || stepsIntoTarget < 0) return false;
             if (isOccupiedBySelf(player, 100 + stepsIntoTarget)) return false;
             return true;
         } else {
+            // Normal weiter
             newPos = (currentPos + roll) % 40;
+            
+            // NEU: HIER WAR DER FEHLER
+            // Darf nicht auf eigene Figur ziehen
+            if (isOccupiedBySelf(player, newPos)) return false;
         }
     }
 
     // --- IMMUNITÄTS REGEL ---
-    // Prüfen ob das Zielfeld von einem Gegner besetzt ist, der auf seinem Startfeld steht
     let isProtected = false;
     Object.values(players).forEach(other => {
         if (other.id !== player.id) {
             other.pieces.forEach(pos => {
-                if (pos === newPos) {
-                    // Steht dieser Gegner auf seinem EIGENEN Startfeld?
-                    if (pos === START_OFFSETS[other.color]) {
-                        isProtected = true;
-                    }
+                if (pos === newPos && pos === START_OFFSETS[other.color]) {
+                    isProtected = true;
                 }
             });
         }
     });
-
-    if (isProtected) return false; // Zug ungültig, da Gegner geschützt
+    if (isProtected) return false; 
 
     return true; 
 }
 
-// Bot Logik
 function playBotMove(bot) {
     if (!bot.lastRoll) return; 
-
-    // Zwangszug prüfen
     const forcedIdx = getForcedMoveIndex(bot);
     let moved = false;
 
     if (forcedIdx !== -1) {
-        // Bot MUSS Zwangszug machen
         if (tryMove(bot, forcedIdx)) moved = true;
     } else {
-        // Normale KI
-        // 1. Rauskommen
         if (bot.lastRoll === 6) {
              const houseIdx = bot.pieces.findIndex(p => p === -1);
              if (houseIdx !== -1 && tryMove(bot, houseIdx)) moved = true;
         }
-        // 2. Beliebiger Zug
         if (!moved) {
             for (let i = 0; i < 4; i++) {
                 if (tryMove(bot, i)) { moved = true; break; }
@@ -284,10 +267,8 @@ function isPathBlockedInTarget(player, startIdx, endIdx) {
     return false;
 }
 function canMoveAny(player) {
-    // Wenn Zwang besteht, ist NUR der Zwangszug "Any Move"
     const forced = getForcedMoveIndex(player);
     if (forced !== -1) return true; 
-
     for (let i = 0; i < 4; i++) { if (isMoveValid(player, i, player.lastRoll)) return true; }
     return false;
 }
