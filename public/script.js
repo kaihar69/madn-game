@@ -123,3 +123,11 @@ function renderPieces(players) {
 }
 function getHexColor(name) { if(name === 'red') return '#d32f2f'; if(name === 'blue') return '#1976d2'; if(name === 'green') return '#388e3c'; if(name === 'yellow') return '#fbc02d'; return '#333'; }
 function getDeColor(c) { if (c==='red') return 'ROT'; if (c==='blue') return 'BLAU'; if (c==='green') return 'GRÜN'; return 'GELB'; }
+// ... dein bestehender Code ...
+
+// WICHTIG: Wenn der Server uns vergessen hat (z.B. Neustart), neu laden
+socket.on('sessionLost', () => {
+    alert("Verbindung kurz verloren. Seite wird neu geladen...");
+    window.location.reload();
+});
+
