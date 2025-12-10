@@ -1,1 +1,37 @@
-Test
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mensch ärgere dich nicht</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Mensch ärgere dich nicht</h1>
+    
+    <h3 id="my-status">Verbinde...</h3>
+    
+    <div id="turn-indicator">
+        Aktueller Zug: <span id="current-player-name">Warten...</span>
+    </div>
+
+    <div id="setup-controls">
+        <button id="startWithBotsBtn" class="bot-btn">Spiel starten (+ Bots)</button>
+    </div>
+
+    <div class="board-container">
+        <div id="board">
+            </div>
+    </div>
+
+    <div class="controls">
+        <button id="rollBtn" disabled>Warte auf Spieler...</button>
+        <div id="diceResult">Würfel: -</div>
+    </div>
+
+    <div id="log-container"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
