@@ -144,4 +144,23 @@ button:disabled {
     font-family: monospace;
     pointer-events: none; /* Klicks gehen durch */
 }
+/* ... dein bisheriger Code ... */
+
+/* Spezielle Markierung für die Startfelder auf dem Pfad */
+.start-field-red { background-color: #ffcccc; border: 2px solid #d32f2f; }
+.start-field-blue { background-color: #ccccff; border: 2px solid #1976d2; }
+.start-field-green { background-color: #ccffcc; border: 2px solid #388e3c; }
+.start-field-yellow { background-color: #ffffcc; border: 2px solid #fbc02d; }
+
+/* Versionsnummer unten rechts */
+#version-tag {
+    position: fixed;
+    bottom: 5px;
+    right: 5px;
+    font-size: 0.8rem;
+    color: #999;
+    font-family: monospace;
+    pointer-events: none;
+}
+
 
