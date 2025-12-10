@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- KONFIGURATION ---
+// --- KONFIGURATION (Bleibt gleich) ---
 const pathMap = [
     {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
     {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
@@ -34,10 +34,11 @@ const targetPositions = {
 const boardElement = document.getElementById('board');
 const rollBtn = document.getElementById('rollBtn');
 const turnName = document.getElementById('current-player-name');
-const startBtn = document.getElementById('startWithBotsBtn');
-const inviteBtn = document.getElementById('inviteBtn');
+const joinBtn = document.getElementById('joinBtn');
+const startBtn = document.getElementById('startBtn');
 const cubeElement = document.getElementById('diceCube');
 let myColor = null;
+let amIPlaying = false;
 
 function initBoard() {
     boardElement.innerHTML = '';
@@ -46,7 +47,6 @@ function initBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             
-            // Pfad + Startfelder
             const pathIndex = pathMap.findIndex(p => p.x === x && p.y === y);
             if(pathIndex !== -1) {
                 cell.classList.add('path');
@@ -56,18 +56,11 @@ function initBoard() {
                 if (pathIndex === 30) cell.classList.add('start-field-yellow');
             }
             
-            // BASEN (Nur exakte Koordinaten!)
             Object.entries(basePositions).forEach(([color, positions]) => {
-                if(positions.some(p => p.x === x && p.y === y)) {
-                    cell.classList.add(`base-${color}`);
-                }
+                if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`base-${color}`);
             });
-
-            // ZIELE
             Object.entries(targetPositions).forEach(([color, positions]) => {
-                if(positions.some(p => p.x === x && p.y === y)) {
-                    cell.classList.add(`target-${color}`); 
-                }
+                if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`target-${color}`); 
             });
 
             cell.id = `cell-${x}-${y}`;
@@ -77,29 +70,85 @@ function initBoard() {
 }
 initBoard();
 
-// --- BUTTONS & SOCKET ---
-
+// --- BUTTONS ---
 rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
-startBtn.addEventListener('click', () => { socket.emit('addBots'); });
-inviteBtn.addEventListener('click', () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-        alert("Link kopiert! Schicke ihn an deine Freunde.");
-    }).catch(err => {
-        prompt("Kopiere diesen Link manuell:", url);
-    });
+
+joinBtn.addEventListener('click', () => {
+    socket.emit('requestJoin');
 });
 
-socket.on('init', (data) => {
+startBtn.addEventListener('click', () => {
+    socket.emit('startGame');
+});
+
+
+// --- LOBBY LOGIK ---
+
+// Status Updates vom Server (läuft das Spiel? wie viele sind drin?)
+socket.on('serverStatus', (info) => {
+    // Wenn ich schon mitspiele, brauche ich den Join Button nicht
+    if (amIPlaying) {
+        joinBtn.style.display = 'none';
+        
+        // Start Button nur zeigen, wenn Spiel noch NICHT läuft
+        if (!info.running) {
+            startBtn.style.display = 'inline-block';
+            startBtn.innerText = `Start (${info.count}/4)`;
+        } else {
+            startBtn.style.display = 'none';
+        }
+        return;
+    }
+
+    // Ich bin Zuschauer -> Status prüfen
+    startBtn.style.display = 'none';
+    joinBtn.style.display = 'inline-block';
+
+    if (info.running) {
+        // Spiel läuft -> Button aus
+        joinBtn.disabled = true;
+        joinBtn.innerText = "Spiel läuft (Warten...)";
+        joinBtn.style.backgroundColor = "#999";
+        rollBtn.innerText = "Zuschauer";
+    } else if (info.full) {
+        // Spiel voll -> Button aus
+        joinBtn.disabled = true;
+        joinBtn.innerText = "Lobby Voll";
+        joinBtn.style.backgroundColor = "#999";
+    } else {
+        // Platz frei -> Button an
+        joinBtn.disabled = false;
+        joinBtn.innerText = `MITSPIELEN (${info.count}/4)`;
+        joinBtn.style.backgroundColor = "#2196F3"; // Blau
+    }
+});
+
+socket.on('joinSuccess', (data) => {
+    amIPlaying = true;
     myColor = data.players[data.id].color;
+    
+    // Status Text update
     const statusText = (myColor === 'red') ? 'Rot' : 
                        (myColor === 'blue') ? 'Blau' :
                        (myColor === 'green') ? 'Grün' : 'Gelb';
     document.getElementById('my-status').innerText = `Ich: ${statusText}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
+
+    // Buttons tauschen
+    joinBtn.style.display = 'none';
+    startBtn.style.display = 'inline-block';
 });
 
-socket.on('gameStarted', () => { document.getElementById('setup-controls').style.display = 'none'; });
+socket.on('joinError', (msg) => {
+    alert(msg);
+});
+
+socket.on('gameStarted', () => {
+    startBtn.style.display = 'none';
+});
+
+// --- GAMEPLAY (Standard) ---
+
 socket.on('updateBoard', (players) => { renderPieces(players); });
 
 socket.on('diceRolled', (data) => {
@@ -136,7 +185,7 @@ socket.on('turnUpdate', (activeColor) => {
     turnName.style.color = getHexColor(activeColor);
     cubeElement.className = 'cube ' + activeColor;
 
-    if (myColor === activeColor) {
+    if (amIPlaying && myColor === activeColor) {
         rollBtn.disabled = false;
         rollBtn.innerText = "Würfeln";
     } else {
@@ -169,7 +218,7 @@ function renderPieces(players) {
                 if (cell) {
                     const piece = document.createElement('div');
                     piece.classList.add('piece', player.color);
-                    if (player.color === myColor) {
+                    if (amIPlaying && player.color === myColor) {
                         piece.onclick = () => { socket.emit('movePiece', { pieceIndex: pieceIndex }); };
                         piece.style.cursor = "pointer";
                     } else {
