@@ -1,58 +1,81 @@
-/* GRUNDLAYOUT */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* Flex-Start ist wichtig, damit JS die Elemente sauber stapeln kann */
-    justify-content: flex-start; 
+    /* Verteilt den Platz: Oben Infos, Mitte Brett, Unten Würfel */
+    justify-content: space-between; 
     color: #333;
     background-color: #e0e0e0;
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 12px, transparent 13px);
     background-size: 50px 50px;
     margin: 0; padding: 0;
-    overflow: hidden; /* Scrollbalken verboten */
+    overflow: hidden; 
     height: 100dvh; width: 100vw;
     touch-action: manipulation;
 }
 
-/* HEADER BEREICH */
-h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0; }
+/* OBERER BEREICH */
+.top-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding-top: 5px;
+    flex-shrink: 0; /* Darf nicht kleiner werden */
+}
+
+h1 { margin: 0; font-size: 1.1rem; text-align: center; }
 
 #header-info {
-    font-size: 0.85rem; margin-bottom: 2px; background: rgba(255,255,255,0.9);
-    padding: 4px 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 50; flex-shrink: 0;
+    font-size: 0.85rem; margin: 3px 0; background: rgba(255,255,255,0.9);
+    padding: 3px 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 #turn-indicator { font-weight: bold; }
 #my-status { font-weight: bold; }
 .active-turn { color: #333; }
 
 #setup-controls {
-    display: flex; justify-content: center; align-items: center; gap: 5px;
-    margin-bottom: 2px; z-index: 50; flex-shrink: 0; flex-wrap: wrap; min-height: 30px;
+    display: flex; justify-content: center; gap: 5px; margin-bottom: 2px;
 }
-#playerNameInput { padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9rem; width: 100px; text-align: center; }
-.bot-btn, .invite-btn { background-color: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+#playerNameInput { padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9rem; width: 90px; text-align: center; }
+.bot-btn, .invite-btn {
+    background-color: #4CAF50; color: white; border: none; padding: 6px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
 .invite-btn { background-color: #2196F3; }
 
-/* BOARD CONTAINER (Größe wird von JS gesetzt!) */
+/* BOARD BEREICH (MITTIG) */
+.board-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    /* Das ist der Puffer, damit das Brett atmen kann */
+    flex-grow: 1; 
+}
+
 .board-container {
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    /* Wichtig: Positionierung relative für die absolute Positionierung der Figuren */
+    /* DIE MAGISCHE FORMEL: */
+    /* Breite = 96% vom Bildschirm */
+    /* ABER: Niemals höher als 60% der Bildschirmhöhe (60vh), damit Platz für UI bleibt */
+    width: min(96vw, 60vh);
+    height: min(96vw, 60vh); /* Quadratisch */
+    
+    max-width: 550px; /* Desktop Begrenzung */
+    max-height: 550px;
+    
     position: relative;
-    /* Zentrieren */
-    margin: 5px auto; 
-    /* JS setzt hier width und height */
 }
 
 #board {
     display: grid;
-    /* 11 gleich große Spalten/Reihen füllen den Container */
     grid-template-columns: repeat(11, 1fr);
     grid-template-rows: repeat(11, 1fr);
     gap: 1px;
     background-color: #222;
-    padding: 1.5%; /* Relatives Padding */
+    padding: 1.5%;
     border: 4px solid #111;
     border-radius: 8px;
     width: 100%; height: 100%;
@@ -61,7 +84,7 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 
 .cell { width: 100%; height: 100%; border-radius: 50%; position: relative; background-color: #333; box-sizing: border-box; }
 
-/* FARBEN & LOGIK */
+/* FARBEN */
 .path { background-color: white; border: 1px solid #999; }
 .start-field-red { background-color: #ffebee; border: 3px solid #d32f2f; }
 .start-field-blue { background-color: #e3f2fd; border: 3px solid #1976d2; }
@@ -86,34 +109,35 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 .piece::after { content: ''; width: 25%; height: 25%; background-color: rgba(0,0,0,0.6); border-radius: 50%; display: block; }
 .piece.red { background-color: #d32f2f; } .piece.blue { background-color: #1976d2; } .piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
 
-/* CONTROLS (Fixiert am Boden oder berechnet) */
+/* UNTERER BEREICH (Steuerung) */
 .controls {
     display: flex; flex-direction: column; align-items: center; gap: 5px;
-    width: 100%; z-index: 20; flex-shrink: 0;
-    /* JS kann hier margin-top setzen */
+    width: 100%; z-index: 20; 
+    padding-bottom: 30px; /* Platz für Log */
+    flex-shrink: 0;
 }
 
 button#rollBtn {
-    padding: 8px 30px; font-size: 1rem; cursor: pointer; background-color: #333;
-    color: white; border: none; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 140px;
+    padding: 10px 40px; font-size: 1.1rem; cursor: pointer; background-color: #333;
+    color: white; border: none; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 160px;
 }
 button:disabled { background-color: #999 !important; }
 
 #log-container { 
     height: 25px; color: #d32f2f; font-weight: bold; text-align: center; 
-    font-size: 0.9rem; width: 100%; text-shadow: 0 0 5px rgba(255,255,255,0.8); z-index: 100;
+    font-size: 0.9rem; position: absolute; bottom: 5px; width: 100%; pointer-events: none;
+    text-shadow: 0 0 5px rgba(255,255,255,0.8); z-index: 100;
 }
 #version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; font-family: monospace; pointer-events: none; z-index: 100; }
 
-/* 3D WÜRFEL (Slightly smaller default) */
-.scene { width: 40px; height: 40px; perspective: 400px; margin-bottom: 2px; }
-.cube { width: 40px; height: 40px; position: relative; transform-style: preserve-3d; transform: translateZ(-20px); transition: transform 0.6s ease-out; }
-.cube__face { position: absolute; width: 40px; height: 40px; border: 2px solid rgba(0,0,0,0.1); line-height: 40px; font-size: 20px; font-weight: bold; text-align: center; border-radius: 6px; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); background: white; color: #333; }
+.scene { width: 45px; height: 45px; perspective: 400px; margin-bottom: 2px; }
+.cube { width: 45px; height: 45px; position: relative; transform-style: preserve-3d; transform: translateZ(-22.5px); transition: transform 0.6s ease-out; }
+.cube__face { position: absolute; width: 45px; height: 45px; border: 2px solid rgba(0,0,0,0.1); line-height: 45px; font-size: 22px; font-weight: bold; text-align: center; border-radius: 8px; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); background: white; color: #333; }
 .cube.red .cube__face { background: #d32f2f; color: white; border-color: #b71c1c; }
 .cube.blue .cube__face { background: #1976d2; color: white; border-color: #0d47a1; }
 .cube.green .cube__face { background: #388e3c; color: white; border-color: #1b5e20; }
 .cube.yellow .cube__face { background: #fbc02d; color: #333; border-color: #f57f17; }
-.cube__face--1 { transform: rotateY(0deg) translateZ(20px); } .cube__face--2 { transform: rotateY(90deg) translateZ(20px); } .cube__face--3 { transform: rotateY(180deg) translateZ(20px); } .cube__face--4 { transform: rotateY(-90deg) translateZ(20px); } .cube__face--5 { transform: rotateX(90deg) translateZ(20px); } .cube__face--6 { transform: rotateX(-90deg) translateZ(20px); }
-.cube.show-1 { transform: translateZ(-20px) rotateY(0deg); } .cube.show-2 { transform: translateZ(-20px) rotateY(-90deg); } .cube.show-3 { transform: translateZ(-20px) rotateY(-180deg); } .cube.show-4 { transform: translateZ(-20px) rotateY(90deg); } .cube.show-5 { transform: translateZ(-20px) rotateX(-90deg); } .cube.show-6 { transform: translateZ(-20px) rotateX(90deg); }
+.cube__face--1 { transform: rotateY(0deg) translateZ(22.5px); } .cube__face--2 { transform: rotateY(90deg) translateZ(22.5px); } .cube__face--3 { transform: rotateY(180deg) translateZ(22.5px); } .cube__face--4 { transform: rotateY(-90deg) translateZ(22.5px); } .cube__face--5 { transform: rotateX(90deg) translateZ(22.5px); } .cube__face--6 { transform: rotateX(-90deg) translateZ(22.5px); }
+.cube.show-1 { transform: translateZ(-22.5px) rotateY(0deg); } .cube.show-2 { transform: translateZ(-22.5px) rotateY(-90deg); } .cube.show-3 { transform: translateZ(-22.5px) rotateY(-180deg); } .cube.show-4 { transform: translateZ(-22.5px) rotateY(90deg); } .cube.show-5 { transform: translateZ(-22.5px) rotateX(-90deg); } .cube.show-6 { transform: translateZ(-22.5px) rotateX(90deg); }
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
