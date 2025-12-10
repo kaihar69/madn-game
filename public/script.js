@@ -44,25 +44,38 @@ function initBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             
-            // Pfad Logik
-            // Wir suchen den Index im pathMap Array, um zu wissen, ob es ein Startfeld ist
+            // Logik: Ist es Pfad, Base oder Ziel?
+            let isSomething = false;
+
+            // Pfad + Startfelder
             const pathIndex = pathMap.findIndex(p => p.x === x && p.y === y);
-            
             if(pathIndex !== -1) {
                 cell.classList.add('path');
-                // Startfelder einfärben (Index 0, 10, 20, 30)
                 if (pathIndex === 0) cell.classList.add('start-field-red');
                 if (pathIndex === 10) cell.classList.add('start-field-blue');
                 if (pathIndex === 20) cell.classList.add('start-field-green');
                 if (pathIndex === 30) cell.classList.add('start-field-yellow');
+                isSomething = true;
             }
             
-            // Basen Logik
-            if (x < 4 && y < 4) cell.classList.add('base-red');
-            if (x > 6 && y < 4) cell.classList.add('base-blue');
-            if (x < 4 && y > 6) cell.classList.add('base-green');
-            if (x > 6 && y > 6) cell.classList.add('base-yellow');
+            // Basen
+            if (x < 4 && y < 4) { cell.classList.add('base-red'); isSomething = true; }
+            if (x > 6 && y < 4) { cell.classList.add('base-blue'); isSomething = true; }
+            if (x < 4 && y > 6) { cell.classList.add('base-green'); isSomething = true; }
+            if (x > 6 && y > 6) { cell.classList.add('base-yellow'); isSomething = true; }
 
+            // Ziele (für die Optik) - Wir prüfen ob x/y in targets liegen
+            Object.values(targetPositions).forEach(arr => {
+                if(arr.some(p => p.x === x && p.y === y)) {
+                    // Für die Optik färben wir Ziele leicht ein oder lassen sie weiß
+                    cell.classList.add('path'); 
+                    cell.style.borderColor = "#666"; // Dunklerer Rand für Ziele
+                    isSomething = true;
+                }
+            });
+
+            // Wenn es NICHTS ist (Mitte oder Rand), lassen wir es dunkel (CSS default)
+            // aber wir geben die ID trotzdem
             cell.id = `cell-${x}-${y}`;
             boardElement.appendChild(cell);
         }
@@ -70,37 +83,23 @@ function initBoard() {
 }
 initBoard();
 
-// --- BUTTONS ---
-rollBtn.addEventListener('click', () => {
-    socket.emit('rollDice');
-});
-startBtn.addEventListener('click', () => {
-    socket.emit('addBots');
-});
+// --- BUTTONS & SOCKET ---
+rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
+startBtn.addEventListener('click', () => { socket.emit('addBots'); });
 
-// --- SOCKET EVENTS ---
 socket.on('init', (data) => {
     myColor = data.players[data.id].color;
-    const status = document.getElementById('my-status');
-    status.innerText = `Du spielst: ${myColor.toUpperCase()}`;
-    status.style.color = getHexColor(myColor);
+    document.getElementById('my-status').innerText = `Du spielst: ${myColor.toUpperCase()}`;
+    document.getElementById('my-status').style.color = getHexColor(myColor);
 });
-socket.on('gameStarted', () => {
-    document.getElementById('setup-controls').style.display = 'none';
-});
-socket.on('updateBoard', (players) => {
-    renderPieces(players);
-});
+socket.on('gameStarted', () => { document.getElementById('setup-controls').style.display = 'none'; });
+socket.on('updateBoard', (players) => { renderPieces(players); });
 
-// Würfel Animation
 socket.on('diceRolled', (data) => {
     rollBtn.disabled = true;
     rollBtn.innerText = "...";
-    
-    // Animation läuft ca 800ms
     animateDice(data.value, () => {
         diceResultDiv.innerText = `${data.player.toUpperCase()} würfelt: ${data.value}`;
-
         if (data.player === myColor && data.canRetry) {
             rollBtn.disabled = false;
             rollBtn.innerText = "Nochmal würfeln!";
@@ -113,12 +112,10 @@ socket.on('diceRolled', (data) => {
 
 function animateDice(finalValue, callback) {
     let counter = 0;
-    const maxCounts = 8; 
     const interval = setInterval(() => {
-        const randomVal = Math.floor(Math.random() * 6) + 1;
-        diceResultDiv.innerText = `Würfelt... ${randomVal}`;
+        diceResultDiv.innerText = `Würfelt... ${Math.floor(Math.random() * 6) + 1}`;
         counter++;
-        if (counter >= maxCounts) {
+        if (counter >= 8) {
             clearInterval(interval);
             callback();
         }
@@ -152,14 +149,10 @@ function renderPieces(players) {
         player.pieces.forEach((posIndex, pieceIndex) => {
             let x, y;
             if (posIndex === -1) {
-                const baseCoords = basePositions[player.color][pieceIndex];
-                x = baseCoords.x; y = baseCoords.y;
+                x = basePositions[player.color][pieceIndex].x; y = basePositions[player.color][pieceIndex].y;
             } else if (posIndex >= 100) {
-                const targetIndex = posIndex - 100;
-                if(targetPositions[player.color][targetIndex]) {
-                    const t = targetPositions[player.color][targetIndex];
-                    x = t.x; y = t.y;
-                }
+                const idx = posIndex - 100;
+                if(targetPositions[player.color][idx]) { x = targetPositions[player.color][idx].x; y = targetPositions[player.color][idx].y; }
             } else {
                 if (pathMap[posIndex]) { x = pathMap[posIndex].x; y = pathMap[posIndex].y; }
             }
