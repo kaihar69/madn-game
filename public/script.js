@@ -33,10 +33,8 @@ const targetPositions = {
 // --- INITIALISIERUNG ---
 const boardElement = document.getElementById('board');
 const rollBtn = document.getElementById('rollBtn');
-const turnDisplay = document.getElementById('turn-indicator');
 const turnName = document.getElementById('current-player-name');
 const startBtn = document.getElementById('startWithBotsBtn');
-const diceTextResult = document.getElementById('diceTextResult');
 const cubeElement = document.getElementById('diceCube');
 let myColor = null;
 
@@ -47,8 +45,6 @@ function initBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             
-            let isSomething = false;
-
             const pathIndex = pathMap.findIndex(p => p.x === x && p.y === y);
             if(pathIndex !== -1) {
                 cell.classList.add('path');
@@ -56,18 +52,16 @@ function initBoard() {
                 if (pathIndex === 10) cell.classList.add('start-field-blue');
                 if (pathIndex === 20) cell.classList.add('start-field-green');
                 if (pathIndex === 30) cell.classList.add('start-field-yellow');
-                isSomething = true;
             }
             
-            if (x < 4 && y < 4) { cell.classList.add('base-red'); isSomething = true; }
-            if (x > 6 && y < 4) { cell.classList.add('base-blue'); isSomething = true; }
-            if (x > 6 && y > 6) { cell.classList.add('base-green'); isSomething = true; }
-            if (x < 4 && y > 6) { cell.classList.add('base-yellow'); isSomething = true; }
+            if (x < 4 && y < 4) cell.classList.add('base-red');
+            if (x > 6 && y < 4) cell.classList.add('base-blue');
+            if (x > 6 && y > 6) cell.classList.add('base-green');
+            if (x < 4 && y > 6) cell.classList.add('base-yellow');
 
             Object.entries(targetPositions).forEach(([color, positions]) => {
                 if(positions.some(p => p.x === x && p.y === y)) {
                     cell.classList.add(`target-${color}`); 
-                    isSomething = true;
                 }
             });
 
@@ -84,64 +78,61 @@ startBtn.addEventListener('click', () => { socket.emit('addBots'); });
 
 socket.on('init', (data) => {
     myColor = data.players[data.id].color;
-    document.getElementById('my-status').innerText = `Du spielst: ${myColor.toUpperCase()}`;
+    document.getElementById('my-status').innerText = `Ich bin: ${myColor.toUpperCase()}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
 });
 socket.on('gameStarted', () => { document.getElementById('setup-controls').style.display = 'none'; });
 socket.on('updateBoard', (players) => { renderPieces(players); });
 
-// --- NEUE 3D WÜRFEL LOGIK ---
+// --- WÜRFEL LOGIK (NEU) ---
 socket.on('diceRolled', (data) => {
     rollBtn.disabled = true;
     rollBtn.innerText = "...";
-    diceTextResult.innerText = "";
     
-    animateDice3D(data.value, () => {
-        // Animation fertig
-        diceTextResult.innerText = `${data.player.toUpperCase()} hat eine ${data.value} gewürfelt`;
-
+    // Animation mit Farbe
+    animateDice3D(data.value, data.player, () => {
+        // Text ist weg, Button Text ändert sich
         if (data.player === myColor && data.canRetry) {
             rollBtn.disabled = false;
             rollBtn.innerText = "Nochmal!";
         } else {
             rollBtn.disabled = true; 
-            rollBtn.innerText = `Ergebnis: ${data.value}`;
+            // Optional: Zeige Ergebnis im Button an
+            rollBtn.innerText = `${data.value}`;
         }
     });
 });
 
-function animateDice3D(finalValue, callback) {
-    // 1. Reset: Alte Klassen entfernen
+function animateDice3D(finalValue, playerColor, callback) {
+    // 1. Reset Klassen (aber Basis 'cube' behalten)
     cubeElement.className = 'cube';
     
-    // 2. Start Animation (Wildes Drehen)
+    // 2. Spielerfarbe setzen (z.B. 'cube red')
+    cubeElement.classList.add(playerColor);
+
+    // 3. Animation Start
     cubeElement.classList.add('rolling');
 
-    // 3. Nach kurzer Zeit Animation stoppen und richtige Seite zeigen
     setTimeout(() => {
         cubeElement.classList.remove('rolling');
-        
-        // Trick: Um den Übergang smooth zu machen, muss man kurz warten
-        // oder direkt die Klasse setzen.
         cubeElement.classList.add(`show-${finalValue}`);
-        
-        // Callback rufen, wenn die CSS Transition (1s) fertig ist
-        setTimeout(callback, 1000); 
-    }, 800); // 800ms wildes Drehen
+        setTimeout(callback, 800); // Warten bis Würfel still steht
+    }, 600); 
 }
 
 socket.on('turnUpdate', (activeColor) => {
     turnName.innerText = activeColor.toUpperCase();
-    turnDisplay.className = ''; 
-    turnDisplay.classList.add('active-turn');
-    turnDisplay.style.borderColor = getHexColor(activeColor);
+    turnName.style.color = getHexColor(activeColor);
+
+    // Würfel Farbe schon mal vorbereiten (passiv)
+    cubeElement.className = 'cube ' + activeColor;
 
     if (myColor === activeColor) {
         rollBtn.disabled = false;
         rollBtn.innerText = "Würfeln";
     } else {
         rollBtn.disabled = true;
-        rollBtn.innerText = `${activeColor.toUpperCase()} ist dran...`;
+        rollBtn.innerText = `${activeColor.toUpperCase()}...`;
     }
 });
 
