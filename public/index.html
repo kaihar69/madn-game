@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mensch ärgere dich nicht</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -19,18 +19,30 @@
         <button id="startWithBotsBtn" class="bot-btn">Spiel starten (+ Bots)</button>
     </div>
 
-    <div class="board-container">
-        <div id="board"></div>
+    <div class="board-wrapper">
+        <div class="board-container">
+            <div id="board"></div>
+        </div>
     </div>
 
     <div class="controls">
-        <button id="rollBtn" disabled>Warte auf Spieler...</button>
-        <div id="diceResult">Würfel: -</div>
-    </div>
+        <div class="scene">
+            <div class="cube" id="diceCube">
+                <div class="cube__face cube__face--1">1</div>
+                <div class="cube__face cube__face--2">2</div>
+                <div class="cube__face cube__face--3">3</div>
+                <div class="cube__face cube__face--4">4</div>
+                <div class="cube__face cube__face--5">5</div>
+                <div class="cube__face cube__face--6">6</div>
+            </div>
+        </div>
+        
+        <button id="rollBtn" disabled>Warten...</button>
+        <div id="diceTextResult"></div> </div>
 
     <div id="log-container"></div>
 
-    <div id="version-tag">V1.4</div>
+    <div id="version-tag">V1.5 (Mobile & 3D)</div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
