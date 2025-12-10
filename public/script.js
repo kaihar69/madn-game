@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- KONFIGURATION (Bleibt gleich) ---
+// --- KONFIGURATION ---
 const pathMap = [
     {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
     {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
@@ -35,7 +35,7 @@ const boardElement = document.getElementById('board');
 const rollBtn = document.getElementById('rollBtn');
 const turnName = document.getElementById('current-player-name');
 const startBtn = document.getElementById('startWithBotsBtn');
-const inviteBtn = document.getElementById('inviteBtn'); // NEU
+const inviteBtn = document.getElementById('inviteBtn');
 const cubeElement = document.getElementById('diceCube');
 let myColor = null;
 
@@ -46,6 +46,7 @@ function initBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             
+            // Pfad + Startfelder
             const pathIndex = pathMap.findIndex(p => p.x === x && p.y === y);
             if(pathIndex !== -1) {
                 cell.classList.add('path');
@@ -55,11 +56,14 @@ function initBoard() {
                 if (pathIndex === 30) cell.classList.add('start-field-yellow');
             }
             
-            if (x < 4 && y < 4) cell.classList.add('base-red');
-            if (x > 6 && y < 4) cell.classList.add('base-blue');
-            if (x > 6 && y > 6) cell.classList.add('base-green');
-            if (x < 4 && y > 6) cell.classList.add('base-yellow');
+            // BASEN (Nur exakte Koordinaten!)
+            Object.entries(basePositions).forEach(([color, positions]) => {
+                if(positions.some(p => p.x === x && p.y === y)) {
+                    cell.classList.add(`base-${color}`);
+                }
+            });
 
+            // ZIELE
             Object.entries(targetPositions).forEach(([color, positions]) => {
                 if(positions.some(p => p.x === x && p.y === y)) {
                     cell.classList.add(`target-${color}`); 
@@ -77,8 +81,6 @@ initBoard();
 
 rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
 startBtn.addEventListener('click', () => { socket.emit('addBots'); });
-
-// NEU: Einladen Funktion
 inviteBtn.addEventListener('click', () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
@@ -90,7 +92,6 @@ inviteBtn.addEventListener('click', () => {
 
 socket.on('init', (data) => {
     myColor = data.players[data.id].color;
-    // Kürzerer Text für Mobile
     const statusText = (myColor === 'red') ? 'Rot' : 
                        (myColor === 'blue') ? 'Blau' :
                        (myColor === 'green') ? 'Grün' : 'Gelb';
@@ -101,7 +102,6 @@ socket.on('init', (data) => {
 socket.on('gameStarted', () => { document.getElementById('setup-controls').style.display = 'none'; });
 socket.on('updateBoard', (players) => { renderPieces(players); });
 
-// WÜRFEL LOGIK
 socket.on('diceRolled', (data) => {
     rollBtn.disabled = true;
     rollBtn.innerText = "...";
@@ -121,7 +121,6 @@ function animateDice3D(finalValue, playerColor, callback) {
     cubeElement.className = 'cube';
     cubeElement.classList.add(playerColor);
     cubeElement.classList.add('rolling');
-
     setTimeout(() => {
         cubeElement.classList.remove('rolling');
         cubeElement.classList.add(`show-${finalValue}`);
@@ -130,14 +129,11 @@ function animateDice3D(finalValue, playerColor, callback) {
 }
 
 socket.on('turnUpdate', (activeColor) => {
-    // Deutsche Übersetzung für den Status
     const deName = (activeColor === 'red') ? 'ROT' : 
                    (activeColor === 'blue') ? 'BLAU' :
                    (activeColor === 'green') ? 'GRÜN' : 'GELB';
-                   
     turnName.innerText = deName;
     turnName.style.color = getHexColor(activeColor);
-
     cubeElement.className = 'cube ' + activeColor;
 
     if (myColor === activeColor) {
