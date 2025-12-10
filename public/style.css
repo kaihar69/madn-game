@@ -1,3 +1,13 @@
+:root {
+    /* DAS IST DER TRICK: */
+    /* Ein Feld ist maximal 40px groß. */
+    /* Auf kleinen Handys ist es: (Gesamtbreite - 30px Rand) geteilt durch 11 Spalten */
+    --cell-size: min(40px, calc((100vw - 30px) / 11));
+    
+    /* Figur ist 80% der Feldgröße */
+    --piece-size: calc(var(--cell-size) * 0.75); 
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
@@ -8,9 +18,8 @@ body {
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 12px, transparent 13px);
     background-size: 50px 50px;
     margin: 0; padding: 0; 
-    overflow: hidden; /* Wichtig: Kein Scrollen */
-    height: 100dvh; 
-    width: 100vw;
+    overflow: hidden; 
+    height: 100dvh; width: 100vw;
     touch-action: manipulation;
 }
 
@@ -43,29 +52,40 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
     flex-grow: 1; 
     display: flex; 
     justify-content: center; 
-    /* Wir richten oben aus, damit wir mit JS von oben skalieren können */
-    align-items: flex-start; 
+    align-items: center; /* Exakt Mittig */
     width: 100%; 
     position: relative; 
-    overflow: visible; 
-    padding-top: 10px; 
+    overflow: hidden; 
 }
 
-/* Der Container hat jetzt eine feste Basis-Größe, damit JS sauber rechnen kann */
 .board-container { 
-    box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
-    /* WICHTIG: Skalierung vom oberen Zentrum aus */
-    transform-origin: top center; 
-    width: 480px; /* Die exakte Breite des Grids (11*40 + Rahmen/Padding) */
-    height: 480px;
-    /* Transition nur für Smoothness beim Drehen */
-    transition: transform 0.2s ease, margin-bottom 0.2s ease;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4); 
+    /* Kein Scale mehr nötig, da sich die inneren Zellen anpassen! */
 }
 
-#board { display: grid; grid-template-columns: repeat(11, 40px); grid-template-rows: repeat(11, 40px); gap: 2px; background-color: #222; padding: 8px; border: 4px solid #111; border-radius: 8px; }
-.cell { width: 40px; height: 40px; border-radius: 50%; position: relative; background-color: #333; box-sizing: border-box; }
-.path { background-color: white; border: 1px solid #999; }
+#board { 
+    display: grid; 
+    /* Hier nutzen wir die dynamische Größe */
+    grid-template-columns: repeat(11, var(--cell-size)); 
+    grid-template-rows: repeat(11, var(--cell-size)); 
+    gap: 2px; 
+    background-color: #222; 
+    padding: 8px; 
+    border: 4px solid #111; 
+    border-radius: 8px; 
+}
 
+.cell { 
+    width: var(--cell-size); 
+    height: var(--cell-size); 
+    border-radius: 50%; 
+    position: relative; 
+    background-color: #333; 
+    box-sizing: border-box; 
+}
+
+/* Farben & Pfade */
+.path { background-color: white; border: 1px solid #999; }
 .start-field-red { background-color: #ffebee; border: 3px solid #d32f2f; }
 .start-field-blue { background-color: #e3f2fd; border: 3px solid #1976d2; }
 .start-field-green { background-color: #e8f5e9; border: 3px solid #388e3c; }
@@ -81,18 +101,45 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 .target-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
 .target-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
 
-.piece { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 1px 2px 4px rgba(0,0,0,0.6); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; justify-content: center; align-items: center; }
-.piece::after { content: ''; width: 8px; height: 8px; background-color: rgba(0,0,0,0.6); border-radius: 50%; display: block; }
-.piece.red { background-color: #d32f2f; } .piece.blue { background-color: #1976d2; } .piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
+/* Figuren (Größe passt sich jetzt auch an!) */
+.piece {
+    width: var(--piece-size); 
+    height: var(--piece-size); 
+    border-radius: 50%; 
+    border: 2px solid white;
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.6); 
+    position: absolute;
+    top: 50%; left: 50%; 
+    transform: translate(-50%, -50%);
+    z-index: 10; 
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex; justify-content: center; align-items: center;
+}
+.piece::after { 
+    content: ''; 
+    width: 25%; /* Relativ zur Figurgröße */
+    height: 25%; 
+    background-color: rgba(0,0,0,0.6); 
+    border-radius: 50%; display: block; 
+}
+.piece.red { background-color: #d32f2f; } 
+.piece.blue { background-color: #1976d2; } 
+.piece.green { background-color: #388e3c; } 
+.piece.yellow { background-color: #fbc02d; }
 
-/* CONTROLS (Würfel) */
+/* CONTROLS - Enger am Brett */
 .controls { 
-    margin-top: 10px; /* Basis Abstand, wird von JS überschrieben/angepasst */
-    margin-bottom: 30px; 
+    margin-top: 5px; 
+    margin-bottom: 25px; 
     display: flex; flex-direction: column; align-items: center; gap: 5px; 
     width: 100%; z-index: 20; flex-shrink: 0; 
 }
-button#rollBtn { padding: 10px 40px; font-size: 1.1rem; cursor: pointer; background-color: #333; color: white; border: none; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 160px; }
+button#rollBtn { 
+    padding: 8px 30px; /* Etwas kleiner für Mobile */
+    font-size: 1rem; 
+    cursor: pointer; background-color: #333; color: white; border: none; border-radius: 25px; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 140px; 
+}
 button:disabled { background-color: #999 !important; }
 
 #log-container { 
@@ -102,7 +149,7 @@ button:disabled { background-color: #999 !important; }
 }
 #version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; font-family: monospace; pointer-events: none; z-index: 100; }
 
-.scene { width: 50px; height: 50px; perspective: 400px; margin-bottom: 5px; }
+.scene { width: 50px; height: 50px; perspective: 400px; margin-bottom: 2px; }
 .cube { width: 50px; height: 50px; position: relative; transform-style: preserve-3d; transform: translateZ(-25px); transition: transform 0.6s ease-out; }
 .cube__face { position: absolute; width: 50px; height: 50px; border: 2px solid rgba(0,0,0,0.1); line-height: 50px; font-size: 24px; font-weight: bold; text-align: center; border-radius: 8px; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); background: white; color: #333; }
 .cube.red .cube__face { background: #d32f2f; color: white; border-color: #b71c1c; }
