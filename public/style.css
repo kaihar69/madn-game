@@ -1,1 +1,134 @@
-Test
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+h1 { margin-bottom: 5px; }
+
+/* Status Boxen */
+#turn-indicator {
+    margin: 10px 0;
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: white;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+/* Pulsierende Animation für den aktiven Spieler */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.2); transform: scale(1); }
+    50% { box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1); transform: scale(1.05); }
+    100% { box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.2); transform: scale(1); }
+}
+
+.active-turn {
+    border-color: #333 !important;
+    font-weight: bold;
+    animation: pulse 1.5s infinite;
+}
+
+/* Bot Button */
+.bot-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.bot-btn:hover { background-color: #45a049; }
+
+/* Das Board */
+.board-container {
+    margin: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(11, 40px);
+    grid-template-rows: repeat(11, 40px);
+    gap: 2px;
+    background-color: #fff;
+    padding: 10px;
+    border: 4px solid #333;
+    border-radius: 4px;
+}
+
+.cell {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #eee; /* Leeres Feld */
+    position: relative;
+}
+
+/* Pfad und Basen Farben */
+.path { background-color: white; border: 1px solid #ccc; }
+.base-red { background-color: #ffcccc; }
+.base-blue { background-color: #ccccff; }
+.base-green { background-color: #ccffcc; }
+.base-yellow { background-color: #ffffcc; }
+
+/* Spielfiguren */
+.piece {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.piece.red { background-color: #d32f2f; }
+.piece.blue { background-color: #1976d2; }
+.piece.green { background-color: #388e3c; }
+.piece.yellow { background-color: #fbc02d; }
+
+/* Controls */
+.controls {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+button#rollBtn {
+    padding: 10px 30px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+button:disabled {
+    background-color: #ccc !important;
+    cursor: not-allowed;
+    color: #666;
+}
+
+#diceResult {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+#log-container {
+    margin-top: 15px;
+    height: 30px;
+    color: #d32f2f;
+    font-weight: bold;
+    text-align: center;
+}
