@@ -1,46 +1,3 @@
-/* ... Alles bisherige bleibt gleich ... */
-
-/* Nur diesen Block bei #setup-controls und Buttons anpassen/ergänzen: */
-
-#setup-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 5px;
-    z-index: 50;
-    flex-shrink: 0;
-    flex-wrap: wrap; /* Falls Name + Button zu breit sind */
-}
-
-/* Das neue Namensfeld */
-#playerNameInput {
-    padding: 8px 10px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    font-size: 0.9rem;
-    width: 100px;
-    text-align: center;
-}
-
-.bot-btn, .invite-btn {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 8px 12px; /* Etwas höher damit es zum Input passt */
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.invite-btn { background-color: #2196F3; }
-
-/* ... Rest der CSS Datei (Board, Cube etc.) bleibt unverändert ... */
-/* ... Kopiere einfach den Rest von V1.8 hier drunter ... */
-
-
-/* (Hier zur Sicherheit nochmal der ganze Rest ab Body, falls du copy-pasten willst) */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
@@ -61,31 +18,52 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
 #turn-indicator { font-weight: bold; }
 #my-status { font-weight: bold; }
 .active-turn { color: #333; }
-.board-wrapper { flex-grow: 1; display: flex; justify-content: center; align-items: flex-start; width: 100%; margin-top: 5px; overflow: visible; }
-.board-container { box-shadow: 0 15px 35px rgba(0,0,0,0.4); transform-origin: center top; }
+
+#setup-controls {
+    display: flex; justify-content: center; align-items: center; gap: 5px;
+    margin-bottom: 5px; z-index: 50; flex-shrink: 0; flex-wrap: wrap;
+}
+#playerNameInput {
+    padding: 8px 10px; border-radius: 4px; border: 1px solid #ccc;
+    font-size: 0.9rem; width: 100px; text-align: center;
+}
+.bot-btn, .invite-btn {
+    background-color: #4CAF50; color: white; border: none; padding: 8px 12px;
+    border-radius: 4px; cursor: pointer; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.invite-btn { background-color: #2196F3; }
+
+.board-wrapper { flex-grow: 1; display: flex; justify-content: center; align-items: center; width: 100%; margin-top: 5px; overflow: visible; }
+.board-container { box-shadow: 0 15px 35px rgba(0,0,0,0.4); transform-origin: center center; transition: transform 0.3s ease; }
 #board { display: grid; grid-template-columns: repeat(11, 40px); grid-template-rows: repeat(11, 40px); gap: 2px; background-color: #222; padding: 8px; border: 4px solid #111; border-radius: 8px; }
 .cell { width: 40px; height: 40px; border-radius: 50%; position: relative; background-color: #333; box-sizing: border-box; }
 .path { background-color: white; border: 1px solid #999; }
+
 .start-field-red { background-color: #ffebee; border: 3px solid #d32f2f; }
 .start-field-blue { background-color: #e3f2fd; border: 3px solid #1976d2; }
 .start-field-green { background-color: #e8f5e9; border: 3px solid #388e3c; }
 .start-field-yellow { background-color: #fffde7; border: 3px solid #fbc02d; }
+
 .base-red { background-color: rgba(211, 47, 47, 0.2); border: 2px solid #d32f2f; }
 .base-blue { background-color: rgba(25, 118, 210, 0.2); border: 2px solid #1976d2; }
 .base-green { background-color: rgba(56, 142, 60, 0.2); border: 2px solid #388e3c; }
 .base-yellow { background-color: rgba(251, 192, 45, 0.2); border: 2px solid #fbc02d; }
+
 .target-red { background-color: #ffebee; border: 2px solid #d32f2f; }
 .target-blue { background-color: #e3f2fd; border: 2px solid #1976d2; }
 .target-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
 .target-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
+
 .piece { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 1px 2px 4px rgba(0,0,0,0.6); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; justify-content: center; align-items: center; }
 .piece::after { content: ''; width: 8px; height: 8px; background-color: rgba(0,0,0,0.6); border-radius: 50%; display: block; }
 .piece.red { background-color: #d32f2f; } .piece.blue { background-color: #1976d2; } .piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
-.controls { margin-top: -10px; margin-bottom: 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; z-index: 20; }
+
+.controls { margin-top: -10px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; z-index: 20; flex-shrink: 0; }
 button#rollBtn { padding: 10px 40px; font-size: 1.1rem; cursor: pointer; background-color: #333; color: white; border: none; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 160px; }
 button:disabled { background-color: #999 !important; }
-#log-container { height: 20px; color: #d32f2f; font-weight: bold; text-align: center; font-size: 0.8rem; margin-bottom: 2px; z-index: 60;}
-#version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; font-family: monospace; pointer-events: none; }
+#log-container { height: 20px; color: #d32f2f; font-weight: bold; text-align: center; font-size: 0.8rem; position: absolute; bottom: 5px; width: 100%; pointer-events: none; }
+#version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; font-family: monospace; pointer-events: none; z-index: 100; }
+
 .scene { width: 50px; height: 50px; perspective: 400px; margin-bottom: 5px; }
 .cube { width: 50px; height: 50px; position: relative; transform-style: preserve-3d; transform: translateZ(-25px); transition: transform 0.6s ease-out; }
 .cube__face { position: absolute; width: 50px; height: 50px; border: 2px solid rgba(0,0,0,0.1); line-height: 50px; font-size: 24px; font-weight: bold; text-align: center; border-radius: 8px; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); background: white; color: #333; }
@@ -97,6 +75,6 @@ button:disabled { background-color: #999 !important; }
 .cube.show-1 { transform: translateZ(-25px) rotateY(0deg); } .cube.show-2 { transform: translateZ(-25px) rotateY(-90deg); } .cube.show-3 { transform: translateZ(-25px) rotateY(-180deg); } .cube.show-4 { transform: translateZ(-25px) rotateY(90deg); } .cube.show-5 { transform: translateZ(-25px) rotateX(-90deg); } .cube.show-6 { transform: translateZ(-25px) rotateX(90deg); }
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
-@media (max-width: 600px) { .board-container { transform: scale(0.85); margin-bottom: -100px; } .controls { margin-top: -30px; } }
-@media (max-width: 380px) { .board-container { transform: scale(0.76); margin-bottom: -130px; } .controls { margin-top: -40px; } }
-@media (max-width: 330px) { .board-container { transform: scale(0.68); margin-bottom: -150px; } }
+@media (max-width: 600px) { .board-container { transform: scale(0.85); } }
+@media (max-width: 380px) { .board-container { transform: scale(0.75); } }
+@media (max-height: 700px) and (orientation: landscape) { .board-container { transform: scale(0.55); } h1, #header-info { display: none; } }
