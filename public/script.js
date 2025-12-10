@@ -43,12 +43,26 @@ function initBoard() {
         for (let x = 0; x < 11; x++) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
-            const isPath = pathMap.some(p => p.x === x && p.y === y);
-            if(isPath) cell.classList.add('path');
+            
+            // Pfad Logik
+            // Wir suchen den Index im pathMap Array, um zu wissen, ob es ein Startfeld ist
+            const pathIndex = pathMap.findIndex(p => p.x === x && p.y === y);
+            
+            if(pathIndex !== -1) {
+                cell.classList.add('path');
+                // Startfelder einfärben (Index 0, 10, 20, 30)
+                if (pathIndex === 0) cell.classList.add('start-field-red');
+                if (pathIndex === 10) cell.classList.add('start-field-blue');
+                if (pathIndex === 20) cell.classList.add('start-field-green');
+                if (pathIndex === 30) cell.classList.add('start-field-yellow');
+            }
+            
+            // Basen Logik
             if (x < 4 && y < 4) cell.classList.add('base-red');
             if (x > 6 && y < 4) cell.classList.add('base-blue');
             if (x < 4 && y > 6) cell.classList.add('base-green');
             if (x > 6 && y > 6) cell.classList.add('base-yellow');
+
             cell.id = `cell-${x}-${y}`;
             boardElement.appendChild(cell);
         }
@@ -78,25 +92,19 @@ socket.on('updateBoard', (players) => {
     renderPieces(players);
 });
 
-// --- WÜRFEL ANIMATION & LOGIK ---
+// Würfel Animation
 socket.on('diceRolled', (data) => {
-    // Button sofort sperren während der Animation
     rollBtn.disabled = true;
     rollBtn.innerText = "...";
-
-    // Animation starten
+    
+    // Animation läuft ca 800ms
     animateDice(data.value, () => {
-        // Diese Funktion wird ausgeführt, wenn die Animation fertig ist (nach ca. 600ms)
-        
-        // UI Update mit dem echten Wert
         diceResultDiv.innerText = `${data.player.toUpperCase()} würfelt: ${data.value}`;
 
-        // Jetzt Button Logik prüfen (Darf ich nochmal?)
         if (data.player === myColor && data.canRetry) {
             rollBtn.disabled = false;
             rollBtn.innerText = "Nochmal würfeln!";
         } else {
-            // Wenn ich nicht nochmal darf, bleibt er disabled (ich muss ziehen)
             rollBtn.disabled = true; 
             rollBtn.innerText = `Gewürfelt: ${data.value}`;
         }
@@ -105,19 +113,16 @@ socket.on('diceRolled', (data) => {
 
 function animateDice(finalValue, callback) {
     let counter = 0;
-    const maxCounts = 10; // Wie oft die Zahl wechselt
-    
+    const maxCounts = 8; 
     const interval = setInterval(() => {
-        // Zeige zufällige Zahlen (1-6)
         const randomVal = Math.floor(Math.random() * 6) + 1;
         diceResultDiv.innerText = `Würfelt... ${randomVal}`;
         counter++;
-
         if (counter >= maxCounts) {
             clearInterval(interval);
-            callback(); // Animation fertig -> Callback aufrufen
+            callback();
         }
-    }, 50); // Alle 50ms neue Zahl
+    }, 100); 
 }
 
 socket.on('turnUpdate', (activeColor) => {
@@ -138,7 +143,7 @@ socket.on('turnUpdate', (activeColor) => {
 socket.on('gameLog', (msg) => {
     const logDiv = document.getElementById('log-container');
     logDiv.innerText = msg;
-    setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 4000);
+    setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
 });
 
 function renderPieces(players) {
