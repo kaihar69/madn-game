@@ -132,3 +132,16 @@ button:disabled {
     font-weight: bold;
     text-align: center;
 }
+/* ... dein bisheriger Code ... */
+
+/* Versionsnummer unten rechts */
+#version-tag {
+    position: fixed;
+    bottom: 5px;
+    right: 5px;
+    font-size: 0.8rem;
+    color: #999;
+    font-family: monospace;
+    pointer-events: none; /* Klicks gehen durch */
+}
+
