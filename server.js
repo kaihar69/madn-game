@@ -11,26 +11,22 @@ const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
 const DELAY_AFTER_ROLL = 2500; 
 const DELAY_BETWEEN_TURNS = 2000; 
 
-// GLOBALE LOBBY
 let players = {};
 let turnIndex = 0;
 let gameRunning = false;
 
 io.on('connection', (socket) => {
-    // Status an Neuen senden
     emitStatus(socket);
     socket.emit('updateBoard', players);
     if(gameRunning) {
         io.emit('turnUpdate', TURN_ORDER[turnIndex]);
     }
 
-    // BEITRETEN (Mit Name)
     socket.on('requestJoin', (playerName) => {
         if (gameRunning) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
         if (Object.keys(players).length >= 4) { socket.emit('joinError', 'Lobby ist voll!'); return; }
         if (players[socket.id]) return; 
 
-        // Name verarbeiten
         let safeName = (playerName || "").substring(0, 12).trim();
         if (safeName.length === 0) safeName = `Spieler ${Object.keys(players).length + 1}`;
 
@@ -51,7 +47,6 @@ io.on('connection', (socket) => {
         broadcastStatus(); 
     });
 
-    // STARTEN
     socket.on('startGame', () => {
         if (gameRunning) return;
         
@@ -103,19 +98,46 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- WICHTIG: DER ANTI-FREEZE FIX ---
     socket.on('disconnect', () => {
-        if (players[socket.id]) {
+        const player = players[socket.id];
+        
+        if (player) {
             if (!gameRunning) {
+                // Lobby Phase: Einfach löschen
                 delete players[socket.id];
                 io.emit('updateBoard', players);
                 broadcastStatus();
             } else {
+                // Spiel läuft: NICHT LÖSCHEN! Zu Bot umwandeln!
+                io.emit('gameLog', `${player.name} ist weg. Ein Bot übernimmt.`);
+                
+                // Wir erstellen einen Bot-Klon an seiner Stelle
+                const botId = `bot-replaced-${Date.now()}`;
+                players[botId] = {
+                    ...player, // Kopiere Positionen, Farbe etc.
+                    id: botId,
+                    name: `${player.name} (Bot)`,
+                    isBot: true,
+                    lastRoll: null // Reset Roll Status zur Sicherheit
+                };
+                
+                // Alten Spieler entfernen
                 delete players[socket.id];
+                
+                io.emit('updateBoard', players);
+                
+                // NOTFALL-CHECK: War er gerade dran?
+                // Wenn ja, muss der Bot jetzt sofort übernehmen, sonst hängt das Spiel!
+                const currentColor = TURN_ORDER[turnIndex];
+                if (players[botId].color === currentColor) {
+                    setTimeout(() => playBotRoll(players[botId]), 1500);
+                }
+                
+                // Wenn alle Menschen weg sind, Reset nach kurzer Zeit
                 const humanLeft = Object.values(players).some(p => !p.isBot);
                 if (!humanLeft) {
-                    resetGame();
-                } else {
-                    io.emit('updateBoard', players);
+                    setTimeout(resetGame, 5000);
                 }
             }
         }
@@ -319,7 +341,12 @@ function isPathBlockedInTarget(player, startIdx, endIdx) {
     for (let i = startIdx + 1; i < endIdx; i++) { if (player.pieces.includes(100 + i)) return true; }
     return false;
 }
-function checkWin(player) { if (player.pieces.every(p => p >= 100)) io.emit('gameLog', `${player.name} GEWINNT!!!`); }
+function checkWin(player) { 
+    if (player.pieces.every(p => p >= 100)) {
+        io.emit('gameLog', `${player.name} GEWINNT!!!`); 
+        setTimeout(resetGame, 10000); 
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Server auf Port ${PORT}`));
