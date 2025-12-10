@@ -8,45 +8,31 @@ body {
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 12px, transparent 13px);
     background-size: 50px 50px;
     margin: 0;
-    padding: 10px;
-    overflow-x: hidden; /* Verhindert seitliches Scrollen auf Handy */
+    padding: 5px; /* Weniger Padding für mehr Platz */
+    overflow-x: hidden;
+    height: 100vh; /* Volle Höhe nutzen */
 }
 
-h1 { margin: 5px 0; font-size: 1.5rem; text-align: center; }
-h3 { margin: 5px 0; font-size: 1rem; }
-
-/* Board Wrapper für Mobile Scaling */
-.board-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 10px 0;
-    width: 100%;
+h1 { 
+    margin: 5px 0; 
+    font-size: 1.2rem; 
+    text-align: center; 
 }
 
-/* Status Boxen */
-#turn-indicator {
-    margin: 5px 0;
-    padding: 8px 15px;
-    border-radius: 8px;
-    background: white;
-    border: 2px solid transparent;
-    transition: all 0.3s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+/* Kompakte Info-Leiste oben */
+#header-info {
     font-size: 0.9rem;
+    margin-bottom: 5px;
+    background: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.2); transform: scale(1); }
-    50% { box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1); transform: scale(1.05); }
-    100% { box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.2); transform: scale(1); }
-}
+#turn-indicator { font-weight: bold; }
+#my-status { font-weight: bold; }
 
-.active-turn {
-    border-color: #333 !important;
-    font-weight: bold;
-    animation: pulse 1.5s infinite;
-}
+.active-turn { color: #333; } /* Farbe wird via JS gesetzt */
 
 .bot-btn {
     background-color: #4CAF50;
@@ -55,14 +41,24 @@ h3 { margin: 5px 0; font-size: 1rem; }
     padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    margin-bottom: 5px;
 }
 
-/* Das Board */
+/* BOARD WRAPPER: Das Herzstück für Mobile */
+.board-wrapper {
+    flex-grow: 1; /* Nimmt den verfügbaren Platz ein */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Oben ausrichten */
+    width: 100%;
+    margin-top: 10px;
+    overflow: hidden; /* Verhindert Scrollbalken bei Scale */
+}
+
 .board-container {
     box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    /* WICHTIG für Mobile: Ursprung für Scale in der Mitte */
     transform-origin: center top; 
 }
 
@@ -83,10 +79,10 @@ h3 { margin: 5px 0; font-size: 1rem; }
     border-radius: 50%;
     position: relative;
     background-color: #333; 
-    box-sizing: border-box; /* Fix für Größe */
+    box-sizing: border-box;
 }
 
-/* Pfad & Farben */
+/* Farben und Pfade */
 .path { background-color: white; border: 1px solid #999; }
 .start-field-red { background-color: #ffebee; border: 3px solid #d32f2f; }
 .start-field-blue { background-color: #e3f2fd; border: 3px solid #1976d2; }
@@ -101,18 +97,11 @@ h3 { margin: 5px 0; font-size: 1rem; }
 .target-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
 .target-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
 
-/* Figuren */
 .piece {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.8);
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 10;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 30px; height: 30px; border-radius: 50%; border: 2px solid white;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.8); position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 10; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .piece.red { background-color: #d32f2f; }
 .piece.blue { background-color: #1976d2; }
@@ -121,112 +110,96 @@ h3 { margin: 5px 0; font-size: 1rem; }
 
 /* Controls */
 .controls {
-    margin-top: 10px;
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
     width: 100%;
+    z-index: 20; /* Über dem Board, falls overlap */
 }
 
 button#rollBtn {
-    padding: 10px 30px;
+    padding: 12px 40px;
     font-size: 1.1rem;
     cursor: pointer;
     background-color: #333;
     color: white;
     border: none;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    min-width: 150px;
+    border-radius: 25px; /* Rundere Buttons */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    min-width: 160px;
 }
-button:disabled { background-color: #888 !important; cursor: not-allowed; box-shadow: none; }
+button:disabled { background-color: #999 !important; cursor: not-allowed; box-shadow: none; }
 
-#diceTextResult { font-weight: bold; margin-top: 5px; height: 20px;}
-#log-container { margin-top: 10px; height: 30px; color: #d32f2f; font-weight: bold; text-align: center; text-shadow: 1px 1px 2px rgba(255,255,255,0.5); font-size: 0.9rem; }
-#version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.7rem; color: #888; font-family: monospace; pointer-events: none; font-weight: bold; }
+#log-container { height: 20px; color: #d32f2f; font-weight: bold; text-align: center; font-size: 0.8rem; margin-bottom: 5px; }
+#version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; font-family: monospace; pointer-events: none; }
 
-/* --- 3D WÜRFEL CSS --- */
+/* --- 3D WÜRFEL --- */
 
-.scene {
-  width: 60px;
-  height: 60px;
-  perspective: 400px;
-}
-
-.cube {
-  width: 60px;
-  height: 60px;
-  position: relative;
-  transform-style: preserve-3d;
-  transform: translateZ(-30px);
-  transition: transform 1s; /* Dreh-Geschwindigkeit */
-}
-
+.scene { width: 50px; height: 50px; perspective: 400px; margin-bottom: 5px; }
+.cube { width: 50px; height: 50px; position: relative; transform-style: preserve-3d; transform: translateZ(-25px); transition: transform 0.6s ease-out; }
 .cube__face {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border: 2px solid #ccc;
-  line-height: 60px;
-  font-size: 30px;
-  font-weight: bold;
-  color: #333;
-  text-align: center;
-  background: white;
-  border-radius: 10px;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+    position: absolute; width: 50px; height: 50px; border: 2px solid rgba(0,0,0,0.1);
+    line-height: 50px; font-size: 24px; font-weight: bold; text-align: center;
+    border-radius: 8px; box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
 }
 
-/* Positionierung der 6 Seiten */
-.cube__face--1  { transform: rotateY(  0deg) translateZ(30px); }
-.cube__face--2  { transform: rotateY( 90deg) translateZ(30px); }
-.cube__face--3  { transform: rotateY(180deg) translateZ(30px); }
-.cube__face--4  { transform: rotateY(-90deg) translateZ(30px); }
-.cube__face--5  { transform: rotateX( 90deg) translateZ(30px); }
-.cube__face--6  { transform: rotateX(-90deg) translateZ(30px); }
+/* WÜRFEL FARBEN */
+/* Default (Weiß) */
+.cube__face { background: white; color: #333; }
 
-/* Klassen für das Endergebnis (Drehung) */
-.cube.show-1 { transform: translateZ(-30px) rotateY(   0deg); }
-.cube.show-2 { transform: translateZ(-30px) rotateY( -90deg); }
-.cube.show-3 { transform: translateZ(-30px) rotateY(-180deg); }
-.cube.show-4 { transform: translateZ(-30px) rotateY(  90deg); }
-.cube.show-5 { transform: translateZ(-30px) rotateX( -90deg); }
-.cube.show-6 { transform: translateZ(-30px) rotateX(  90deg); }
+/* Rot */
+.cube.red .cube__face { background: #d32f2f; color: white; border-color: #b71c1c; }
+/* Blau */
+.cube.blue .cube__face { background: #1976d2; color: white; border-color: #0d47a1; }
+/* Grün */
+.cube.green .cube__face { background: #388e3c; color: white; border-color: #1b5e20; }
+/* Gelb (Schwarze Schrift für Kontrast) */
+.cube.yellow .cube__face { background: #fbc02d; color: #333; border-color: #f57f17; }
 
-/* Animation fürs "Rollen" (Zufälliges Drehen) */
-@keyframes tumble {
+
+.cube__face--1  { transform: rotateY(  0deg) translateZ(25px); }
+.cube__face--2  { transform: rotateY( 90deg) translateZ(25px); }
+.cube__face--3  { transform: rotateY(180deg) translateZ(25px); }
+.cube__face--4  { transform: rotateY(-90deg) translateZ(25px); }
+.cube__face--5  { transform: rotateX( 90deg) translateZ(25px); }
+.cube__face--6  { transform: rotateX(-90deg) translateZ(25px); }
+
+.cube.show-1 { transform: translateZ(-25px) rotateY(   0deg); }
+.cube.show-2 { transform: translateZ(-25px) rotateY( -90deg); }
+.cube.show-3 { transform: translateZ(-25px) rotateY(-180deg); }
+.cube.show-4 { transform: translateZ(-25px) rotateY(  90deg); }
+.cube.show-5 { transform: translateZ(-25px) rotateX( -90deg); }
+.cube.show-6 { transform: translateZ(-25px) rotateX(  90deg); }
+
+.cube.rolling { animation: tumble 0.4s infinite linear; }
+@keyframes tumble { 
     0% { transform: rotateX(0) rotateY(0) rotateZ(0); }
-    100% { transform: rotateX(720deg) rotateY(360deg) rotateZ(360deg); }
-}
-.cube.rolling {
-    animation: tumble 0.5s infinite linear;
+    100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
 }
 
+/* --- MOBILE OPTIMIERUNG --- */
 
-/* --- MOBILE RESPONSIVENESS --- */
-
-@media (max-width: 500px) {
-    /* Skaliere das Board herunter, wenn der Screen kleiner als 500px ist */
+@media (max-width: 600px) {
+    /* Header kompakter */
+    h1 { font-size: 1rem; margin-top: 5px; }
+    #header-info { font-size: 0.8rem; padding: 2px 10px; }
+    
+    /* Board passt sich der Breite an */
+    /* Wir berechnen den Zoom-Faktor: Screen-Breite / Board-Breite (ca 480px inkl Rand) */
     .board-container {
-        transform: scale(0.65); /* Auf 65% verkleinern */
-        margin-bottom: -150px; /* Platz unten ausgleichen durch Scale */
-        margin-top: -20px;
-    }
-    
-    h1 { font-size: 1.2rem; }
-    
-    /* Button etwas größer für Finger */
-    button#rollBtn {
-        padding: 15px 40px;
-        font-size: 1.2rem;
+        /* Standard Scale für Mobile */
+        transform: scale(0.75); 
     }
 }
 
-@media (max-width: 350px) {
-    /* Für ganz kleine Handys noch kleiner */
+@media (max-width: 380px) {
+    /* Für kleine iPhones / Androids */
     .board-container {
-        transform: scale(0.55);
-        margin-bottom: -200px;
+        transform: scale(0.62); /* Maximale Breite nutzen */
+    }
+    .board-wrapper {
+        margin-top: 0; /* Näher ran */
     }
 }
