@@ -11,46 +11,81 @@ const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
 const DELAY_AFTER_ROLL = 2500; 
 const DELAY_BETWEEN_TURNS = 2000; 
 
+// EIN GLOBALES SPIEL
 let players = {};
 let turnIndex = 0;
 let gameRunning = false;
 
 io.on('connection', (socket) => {
-    console.log('Verbunden:', socket.id);
+    // 1. Neuer Besucher kommt auf die Seite (noch kein Spieler!)
+    // Wir senden ihm sofort den Status, damit sein Button stimmt.
+    emitStatus(socket);
+    // Er bekommt auch das aktuelle Brett (zum Zuschauen)
+    socket.emit('updateBoard', players); 
 
-    if (Object.keys(players).length < 4 && !gameRunning) {
+    // 2. Besucher klickt auf "Mitspielen"
+    socket.on('requestJoin', () => {
+        if (gameRunning) {
+            socket.emit('joinError', 'Spiel läuft bereits!');
+            return;
+        }
+        if (Object.keys(players).length >= 4) {
+            socket.emit('joinError', 'Lobby ist voll!');
+            return;
+        }
+        if (players[socket.id]) {
+            return; // Ist schon drin
+        }
+
+        // Spieler hinzufügen
         const color = getColor(Object.keys(players).length);
-        players[socket.id] = { id: socket.id, color: color, pieces: [-1, -1, -1, -1], isBot: false, lastRoll: null, rollCount: 0 };
-        socket.emit('init', { id: socket.id, players: players });
-        io.emit('updateBoard', players);
-        socket.emit('turnUpdate', TURN_ORDER[turnIndex]);
-    } else { socket.emit('full', 'Voll.'); }
+        players[socket.id] = { 
+            id: socket.id, 
+            color: color, 
+            pieces: [-1, -1, -1, -1], 
+            isBot: false, 
+            lastRoll: null, 
+            rollCount: 0 
+        };
 
-    socket.on('addBots', () => {
+        // Bestätigung an den Spieler
+        socket.emit('joinSuccess', { id: socket.id, players: players });
+        
+        // Updates an ALLE
+        io.emit('updateBoard', players);
+        io.emit('turnUpdate', TURN_ORDER[turnIndex]);
+        broadcastStatus(); // Button Updates für alle
+    });
+
+    // 3. Spiel Starten (+ Bots)
+    socket.on('startGame', () => {
         if (gameRunning) return;
+        
+        // Bots auffüllen
         while (Object.keys(players).length < 4) {
             const botCount = Object.keys(players).filter(id => id.startsWith('bot-')).length;
             const botId = `bot-${Date.now()}-${botCount}`;
             const color = getColor(Object.keys(players).length);
             players[botId] = { id: botId, color: color, pieces: [-1, -1, -1, -1], isBot: true, lastRoll: null, rollCount: 0 };
         }
+        
         gameRunning = true;
         io.emit('updateBoard', players);
-        io.emit('gameStarted');
+        io.emit('gameStarted'); // Versteckt Start-Knöpfe bei Spielern
+        broadcastStatus();      // Graut "Mitspielen" Button bei Zuschauern aus
         checkBotTurn();
     });
 
     socket.on('rollDice', () => {
         const player = players[socket.id];
-        if (!player || player.color !== TURN_ORDER[turnIndex] || player.lastRoll) return;
+        if (!player || !gameRunning || player.color !== TURN_ORDER[turnIndex] || player.lastRoll) return;
         handleRoll(player);
     });
 
     socket.on('movePiece', (data) => {
         const player = players[socket.id];
-        if (!player || player.color !== TURN_ORDER[turnIndex] || !player.lastRoll) return;
+        if (!player || !gameRunning || player.color !== TURN_ORDER[turnIndex] || !player.lastRoll) return;
         
-        // Zwangszug Check
         const forcedIndex = getForcedMoveIndex(player);
         if (forcedIndex !== -1 && data.pieceIndex !== forcedIndex) {
             socket.emit('gameLog', "Zwangszug! Du musst den Startplatz räumen!");
@@ -66,15 +101,69 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        if(players[socket.id]) { delete players[socket.id]; io.emit('updateBoard', players); }
+        if (players[socket.id]) {
+            // Wenn das Spiel noch nicht lief, einfach löschen
+            if (!gameRunning) {
+                delete players[socket.id];
+                io.emit('updateBoard', players);
+                broadcastStatus();
+            } else {
+                // Wenn Spiel lief: 
+                // Fürs MVP: Wir löschen ihn, aber das Spiel läuft weiter (Buggy).
+                // Besser für deinen Wunsch "Reset":
+                delete players[socket.id];
+                
+                // Prüfen ob noch MENSCHEN da sind
+                const humanLeft = Object.values(players).some(p => !p.isBot);
+                if (!humanLeft) {
+                    resetGame(); // Alle weg -> Reset für die Nächsten
+                } else {
+                    io.emit('updateBoard', players);
+                }
+            }
+        }
     });
 });
 
-// --- LOGIK ---
+// --- STATUS MANAGEMENT ---
+
+function resetGame() {
+    players = {};
+    turnIndex = 0;
+    gameRunning = false;
+    broadcastStatus(); // Alle Buttons wieder grün!
+    io.emit('updateBoard', players);
+    io.emit('gameLog', "Spiel wurde zurückgesetzt.");
+}
+
+// Sendet Status an alle (um Buttons zu steuern)
+function broadcastStatus() {
+    const playerCount = Object.keys(players).length;
+    const info = {
+        running: gameRunning,
+        count: playerCount,
+        full: playerCount >= 4
+    };
+    io.emit('serverStatus', info);
+}
+
+// Sendet Status an einen einzelnen (beim Connect)
+function emitStatus(socket) {
+    const playerCount = Object.keys(players).length;
+    socket.emit('serverStatus', {
+        running: gameRunning,
+        count: playerCount,
+        full: playerCount >= 4
+    });
+}
+
+
+// --- SPIEL LOGIK (Standard) ---
 
 function handleRoll(player) {
     player.lastRoll = Math.floor(Math.random() * 6) + 1;
     player.rollCount++; 
+    
     const allInHouse = player.pieces.every(p => p === -1);
     const roll = player.lastRoll;
     let canRetry = false;
@@ -131,7 +220,6 @@ function tryMove(player, pieceIndex) {
         else newPos = (currentPos + roll) % 40;
     }
 
-    // Schlagen
     if (newPos < 100) {
         Object.values(players).forEach(other => {
             if (other.id !== player.id) {
@@ -153,11 +241,9 @@ function isMoveValid(player, pieceIndex, roll) {
     const currentPos = player.pieces[pieceIndex];
     const startPos = START_OFFSETS[player.color];
 
-    // Rauskommen
     if (currentPos === -1) return (roll === 6 && !isOccupiedBySelf(player, startPos));
 
     let newPos;
-    // Ziel
     if (currentPos >= 100) {
         const currentTargetIndex = currentPos - 100;
         const targetIndex = currentTargetIndex + roll;
@@ -165,28 +251,20 @@ function isMoveValid(player, pieceIndex, roll) {
         if (isPathBlockedInTarget(player, currentTargetIndex, targetIndex)) return false;
         if (isOccupiedBySelf(player, 100 + targetIndex)) return false;
         return true;
-    } 
-    // Feld
-    else {
+    } else {
         const entryPoint = ENTRY_POINTS[player.color];
         const distanceToEntry = (entryPoint - currentPos + 40) % 40;
         if (distanceToEntry < roll) {
-            // Ins Ziel gehen
             const stepsIntoTarget = roll - distanceToEntry - 1;
             if (stepsIntoTarget > 3 || stepsIntoTarget < 0) return false;
             if (isOccupiedBySelf(player, 100 + stepsIntoTarget)) return false;
             return true;
         } else {
-            // Normal weiter
             newPos = (currentPos + roll) % 40;
-            
-            // NEU: HIER WAR DER FEHLER
-            // Darf nicht auf eigene Figur ziehen
             if (isOccupiedBySelf(player, newPos)) return false;
         }
     }
 
-    // --- IMMUNITÄTS REGEL ---
     let isProtected = false;
     Object.values(players).forEach(other => {
         if (other.id !== player.id) {
@@ -266,13 +344,12 @@ function isPathBlockedInTarget(player, startIdx, endIdx) {
     for (let i = startIdx + 1; i < endIdx; i++) { if (player.pieces.includes(100 + i)) return true; }
     return false;
 }
-function canMoveAny(player) {
-    const forced = getForcedMoveIndex(player);
-    if (forced !== -1) return true; 
-    for (let i = 0; i < 4; i++) { if (isMoveValid(player, i, player.lastRoll)) return true; }
-    return false;
+function checkWin(player) { 
+    if (player.pieces.every(p => p >= 100)) {
+        io.emit('gameLog', `SIEG!!!`); 
+        setTimeout(resetGame, 10000); // Reset nach 10 sekunden
+    }
 }
-function checkWin(player) { if (player.pieces.every(p => p >= 100)) io.emit('gameLog', `SIEG!!!`); }
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Server auf Port ${PORT}`));
