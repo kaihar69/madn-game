@@ -16,12 +16,12 @@ const pathMap = [
     {x:0, y:5}                                                  
 ];
 
-// HIER WURDE GETAUSCHT: Grün nach unten rechts, Gelb nach unten links
+// Korrekte Basen-Anordnung
 const basePositions = {
     'red':   [{x:0, y:0}, {x:1, y:0}, {x:0, y:1}, {x:1, y:1}],     // Oben Links
     'blue':  [{x:9, y:0}, {x:10, y:0}, {x:9, y:1}, {x:10, y:1}],   // Oben Rechts
-    'green': [{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}], // Unten Rechts (War vorher links)
-    'yellow':[{x:0, y:9}, {x:1, y:9}, {x:0, y:10}, {x:1, y:10}]    // Unten Links (War vorher rechts)
+    'green': [{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}], // Unten Rechts
+    'yellow':[{x:0, y:9}, {x:1, y:9}, {x:0, y:10}, {x:1, y:10}]    // Unten Links
 };
 
 const targetPositions = {
@@ -60,19 +60,18 @@ function initBoard() {
                 isSomething = true;
             }
             
-            // Basen (Ebenfalls getauscht für die korrekte Färbung)
+            // Basen (Wartebereich)
             if (x < 4 && y < 4) { cell.classList.add('base-red'); isSomething = true; }
             if (x > 6 && y < 4) { cell.classList.add('base-blue'); isSomething = true; }
-            
-            // HIER KORRIGIERT:
-            if (x > 6 && y > 6) { cell.classList.add('base-green'); isSomething = true; } // Unten Rechts = Grün
-            if (x < 4 && y > 6) { cell.classList.add('base-yellow'); isSomething = true; } // Unten Links = Gelb
+            if (x > 6 && y > 6) { cell.classList.add('base-green'); isSomething = true; }
+            if (x < 4 && y > 6) { cell.classList.add('base-yellow'); isSomething = true; }
 
-            // Ziele
-            Object.values(targetPositions).forEach(arr => {
-                if(arr.some(p => p.x === x && p.y === y)) {
-                    cell.classList.add('path'); 
-                    cell.style.borderColor = "#666"; 
+            // NEU: Ziele (Parkhaus) farblich markieren
+            // Wir iterieren über die Einträge (Farbe + Positionen)
+            Object.entries(targetPositions).forEach(([color, positions]) => {
+                if(positions.some(p => p.x === x && p.y === y)) {
+                    // Fügt z.B. 'target-red' hinzu
+                    cell.classList.add(`target-${color}`); 
                     isSomething = true;
                 }
             });
