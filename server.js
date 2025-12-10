@@ -12,22 +12,27 @@ const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
 const DELAY_AFTER_ROLL = 2000; 
 const DELAY_BETWEEN_TURNS = 1500; 
 
-// GLOBALE LOBBY
+// GLOBALE LOBBY LISTE
 const games = {}; 
 
+// WICHTIG: Wir erstellen den globalen Raum sofort beim Serverstart
+// Damit ist er immer da, auch nach einem Crash/Neustart
+games['global'] = createNewGame();
+
 io.on('connection', (socket) => {
+    // Wenn jemand verbindet, setzen wir ihn standardmäßig in den globalen Kontext
+    socket.join('global'); 
     emitStatus(socket);
     
     // --- JOIN ---
     socket.on('requestJoin', (playerName) => {
         try {
-            if (getGameRunning(socket)) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
+            if (getGameRunning()) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
             
             const roomId = 'global'; 
-            socket.join(roomId);
+            // socket.join ist oben schon passiert
             
-            if (!games[roomId]) games[roomId] = createNewGame();
-            const game = games[roomId];
+            const game = games[roomId]; // Existiert sicher
 
             if (Object.keys(game.players).length >= 4) { socket.emit('joinError', 'Lobby ist voll!'); return; }
             if (game.players[socket.id]) return; 
@@ -53,15 +58,22 @@ io.on('connection', (socket) => {
             broadcastStatus(roomId); 
         } catch (e) {
             console.error("Error Join:", e);
+            socket.emit('gameLog', "Fehler beim Beitritt.");
         }
     });
 
     // --- START ---
     socket.on('startGame', () => {
         try {
-            const roomId = socket.data.roomId;
+            // FIX: Fallback auf 'global', falls Session verloren ging
+            const roomId = socket.data.roomId || 'global';
             const game = games[roomId];
-            if (!game || game.running) return;
+            
+            if (!game) { 
+                socket.emit('gameLog', "Fehler: Kein Spiel gefunden."); 
+                return; 
+            }
+            if (game.running) return;
             
             let botIndex = 1;
             while (Object.keys(game.players).length < 4) {
@@ -79,13 +91,16 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('gameStarted');
             broadcastStatus(roomId);
             checkBotTurn(roomId);
-        } catch (e) { console.error("Error Start:", e); }
+        } catch (e) { 
+            console.error("Error Start:", e);
+            socket.emit('gameLog', "Fehler beim Starten.");
+        }
     });
 
     // --- WÜRFELN ---
     socket.on('rollDice', () => {
         try {
-            const roomId = socket.data.roomId;
+            const roomId = socket.data.roomId || 'global';
             const game = games[roomId];
             if (!game) return;
 
@@ -99,17 +114,15 @@ io.on('connection', (socket) => {
     // --- ZIEHEN ---
     socket.on('movePiece', (data) => {
         try {
-            const roomId = socket.data.roomId;
+            const roomId = socket.data.roomId || 'global';
             const game = games[roomId];
             if (!game) return;
 
             const player = game.players[socket.id];
             if (!player || !game.running || player.color !== TURN_ORDER[game.turnIndex] || !player.lastRoll) return;
             
-            // ZWANGSZUG PRÜFUNG
             const forcedIndex = getForcedMoveIndex(game, player);
             if (forcedIndex !== -1) {
-                // Sonderfall: Wenn Zwang "Rauskommen" ist (Figur im Haus), darf er JEDE Figur im Haus nehmen
                 const isForcedInHouse = player.pieces[forcedIndex] === -1;
                 const isSelectedInHouse = player.pieces[data.pieceIndex] === -1;
 
@@ -119,7 +132,6 @@ io.on('connection', (socket) => {
                         return;
                     }
                 } else {
-                    // Strenger Zwang (z.B. Feld räumen), genau DIESE Figur muss es sein
                     if (data.pieceIndex !== forcedIndex) {
                         socket.emit('gameLog', "Zwang: Du musst den Startplatz räumen!");
                         return;
@@ -139,8 +151,8 @@ io.on('connection', (socket) => {
     // --- DISCONNECT ---
     socket.on('disconnect', () => {
         try {
-            const roomId = socket.data.roomId;
-            if (roomId && games[roomId]) {
+            const roomId = 'global'; // Immer global annehmen
+            if (games[roomId]) {
                 const game = games[roomId];
                 
                 if (game.players[socket.id]) {
@@ -151,7 +163,7 @@ io.on('connection', (socket) => {
                         io.to(roomId).emit('updateBoard', game.players);
                         broadcastStatus(roomId);
                     } else {
-                        io.to(roomId).emit('gameLog', `${player.name} ist weg. Bot übernimmt.`);
+                        io.to(roomId).emit('gameLog', `${player.name} weg. Bot übernimmt.`);
                         const botId = `bot-rep-${Date.now()}`;
                         game.players[botId] = {
                             ...player, id: botId, name: `${player.name} (Bot)`, isBot: true, lastRoll: null 
@@ -174,14 +186,14 @@ io.on('connection', (socket) => {
 // --- HELPER & STATE ---
 
 function createNewGame() { return { players: {}, turnIndex: 0, running: false }; }
-function getGameRunning(socket) { return games['global'] && games['global'].running; }
+function getGameRunning() { return games['global'] && games['global'].running; }
 
 function resetGame(roomId) {
     if(games[roomId]) {
         games[roomId] = createNewGame();
         broadcastStatus(roomId);
         io.to(roomId).emit('updateBoard', {});
-        io.to(roomId).emit('gameLog', "Spiel wurde zurückgesetzt.");
+        io.to(roomId).emit('gameLog', "Spiel zurückgesetzt.");
         io.to(roomId).emit('turnUpdate', 'red'); 
     }
 }
@@ -204,7 +216,7 @@ function emitStatus(socket) {
     }
 }
 
-// --- SPIEL LOGIK ---
+// --- LOGIK ---
 
 function handleRoll(roomId, player) {
     const game = games[roomId];
@@ -251,33 +263,14 @@ function handleRoll(roomId, player) {
     }
 }
 
-// HIER IST DIE NEUE LOGIK FÜR DEN ZWANG
 function getForcedMoveIndex(game, player) {
-    const startPos = START_OFFSETS[player.color];
     const hasInHouse = player.pieces.some(p => p === -1);
-
-    // PRIO 1: Rauskommen bei 6
-    if (player.lastRoll === 6 && hasInHouse) {
-        // Wenn Startfeld NICHT von mir selbst blockiert ist
-        if (!isOccupiedBySelf(player, startPos)) {
-            // Wir geben irgendeinen Index im Haus zurück (wird in movePiece behandelt)
-            return player.pieces.findIndex(p => p === -1);
-        }
-    }
-
-    // PRIO 2: Startfeld räumen
-    // Wenn ich Figuren im Haus habe UND das Startfeld blockiere
-    if (hasInHouse) {
-        const indexOnStart = player.pieces.findIndex(p => p === startPos);
-        if (indexOnStart !== -1) {
-            // Nur wenn Zug möglich (nicht blockiert)
-            if (isMoveValid(game, player, indexOnStart, player.lastRoll)) {
-                return indexOnStart;
-            }
-        }
-    }
-
-    return -1; // Kein Zwang
+    if (!hasInHouse) return -1; 
+    const startPos = START_OFFSETS[player.color];
+    const indexOnStart = player.pieces.findIndex(p => p === startPos);
+    if (indexOnStart === -1) return -1; 
+    if (isMoveValid(game, player, indexOnStart, player.lastRoll)) return indexOnStart; 
+    return -1; 
 }
 
 function tryMove(roomId, player, pieceIndex) {
@@ -422,10 +415,7 @@ function nextTurn(roomId) {
 
     const nextColor = TURN_ORDER[game.turnIndex];
     const nextPlayerId = Object.keys(game.players).find(id => game.players[id].color === nextColor);
-    if(nextPlayerId && game.players[nextPlayerId]) {
-        game.players[nextPlayerId].rollCount = 0;
-    }
-    
+    if(nextPlayerId && game.players[nextPlayerId]) players[nextPlayerId].rollCount = 0;
     io.to(roomId).emit('turnUpdate', nextColor);
     checkBotTurn(roomId);
 }
@@ -436,9 +426,6 @@ function checkBotTurn(roomId) {
 
     const currentColor = TURN_ORDER[game.turnIndex];
     const playerID = Object.keys(game.players).find(id => game.players[id].color === currentColor);
-    
-    if(!playerID) return;
-
     const player = game.players[playerID];
     if (player && player.isBot) setTimeout(() => playBotRoll(roomId, player), DELAY_BETWEEN_TURNS);
 }
