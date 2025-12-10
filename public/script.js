@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- KONFIGURATION ---
+// --- KONFIGURATION (Bleibt gleich) ---
 const pathMap = [
     {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
     {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
@@ -35,6 +35,7 @@ const boardElement = document.getElementById('board');
 const rollBtn = document.getElementById('rollBtn');
 const turnName = document.getElementById('current-player-name');
 const startBtn = document.getElementById('startWithBotsBtn');
+const inviteBtn = document.getElementById('inviteBtn'); // NEU
 const cubeElement = document.getElementById('diceCube');
 let myColor = null;
 
@@ -73,58 +74,70 @@ function initBoard() {
 initBoard();
 
 // --- BUTTONS & SOCKET ---
+
 rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
 startBtn.addEventListener('click', () => { socket.emit('addBots'); });
 
+// NEU: Einladen Funktion
+inviteBtn.addEventListener('click', () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+        alert("Link kopiert! Schicke ihn an deine Freunde.");
+    }).catch(err => {
+        prompt("Kopiere diesen Link manuell:", url);
+    });
+});
+
 socket.on('init', (data) => {
     myColor = data.players[data.id].color;
-    document.getElementById('my-status').innerText = `Ich bin: ${myColor.toUpperCase()}`;
+    // Kürzerer Text für Mobile
+    const statusText = (myColor === 'red') ? 'Rot' : 
+                       (myColor === 'blue') ? 'Blau' :
+                       (myColor === 'green') ? 'Grün' : 'Gelb';
+    document.getElementById('my-status').innerText = `Ich: ${statusText}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
 });
+
 socket.on('gameStarted', () => { document.getElementById('setup-controls').style.display = 'none'; });
 socket.on('updateBoard', (players) => { renderPieces(players); });
 
-// --- WÜRFEL LOGIK (NEU) ---
+// WÜRFEL LOGIK
 socket.on('diceRolled', (data) => {
     rollBtn.disabled = true;
     rollBtn.innerText = "...";
     
-    // Animation mit Farbe
     animateDice3D(data.value, data.player, () => {
-        // Text ist weg, Button Text ändert sich
         if (data.player === myColor && data.canRetry) {
             rollBtn.disabled = false;
             rollBtn.innerText = "Nochmal!";
         } else {
             rollBtn.disabled = true; 
-            // Optional: Zeige Ergebnis im Button an
             rollBtn.innerText = `${data.value}`;
         }
     });
 });
 
 function animateDice3D(finalValue, playerColor, callback) {
-    // 1. Reset Klassen (aber Basis 'cube' behalten)
     cubeElement.className = 'cube';
-    
-    // 2. Spielerfarbe setzen (z.B. 'cube red')
     cubeElement.classList.add(playerColor);
-
-    // 3. Animation Start
     cubeElement.classList.add('rolling');
 
     setTimeout(() => {
         cubeElement.classList.remove('rolling');
         cubeElement.classList.add(`show-${finalValue}`);
-        setTimeout(callback, 800); // Warten bis Würfel still steht
+        setTimeout(callback, 800); 
     }, 600); 
 }
 
 socket.on('turnUpdate', (activeColor) => {
-    turnName.innerText = activeColor.toUpperCase();
+    // Deutsche Übersetzung für den Status
+    const deName = (activeColor === 'red') ? 'ROT' : 
+                   (activeColor === 'blue') ? 'BLAU' :
+                   (activeColor === 'green') ? 'GRÜN' : 'GELB';
+                   
+    turnName.innerText = deName;
     turnName.style.color = getHexColor(activeColor);
 
-    // Würfel Farbe schon mal vorbereiten (passiv)
     cubeElement.className = 'cube ' + activeColor;
 
     if (myColor === activeColor) {
@@ -132,7 +145,7 @@ socket.on('turnUpdate', (activeColor) => {
         rollBtn.innerText = "Würfeln";
     } else {
         rollBtn.disabled = true;
-        rollBtn.innerText = `${activeColor.toUpperCase()}...`;
+        rollBtn.innerText = `${deName}...`;
     }
 });
 
