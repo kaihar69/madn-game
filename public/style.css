@@ -1,12 +1,4 @@
-:root {
-    /* DAS IST DER TRICK: */
-    /* Ein Feld ist maximal 40px groß. */
-    /* Auf kleinen Handys ist es: (Gesamtbreite - 30px Rand) geteilt durch 11 Spalten */
-    --cell-size: min(40px, calc((100vw - 30px) / 11));
-    
-    /* Figur ist 80% der Feldgröße */
-    --piece-size: calc(var(--cell-size) * 0.75); 
-}
+/* :root BLOCK WURDE GELÖSCHT - BRAUCHEN WIR NICHT MEHR */
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -52,32 +44,49 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
     flex-grow: 1; 
     display: flex; 
     justify-content: center; 
-    align-items: center; /* Exakt Mittig */
+    align-items: center; 
     width: 100%; 
     position: relative; 
     overflow: hidden; 
 }
 
+/* HIER IST DIE NEUE MAGIE */
 .board-container { 
     box-shadow: 0 10px 25px rgba(0,0,0,0.4); 
-    /* Kein Scale mehr nötig, da sich die inneren Zellen anpassen! */
+    
+    /* 1. Garantierter Rand: Volle Breite minus 24px (12px links, 12px rechts) */
+    width: calc(100vw - 24px);
+    
+    /* 2. Aber niemals größer als 500px auf dem Desktop werden */
+    max-width: 500px;
+    
+    /* 3. Zwinge es zu einem perfekten Quadrat */
+    aspect-ratio: 1 / 1;
+    
+    /* Zentrieren */
+    margin: 0 auto;
 }
 
 #board { 
     display: grid; 
-    /* Hier nutzen wir die dynamische Größe */
-    grid-template-columns: repeat(11, var(--cell-size)); 
-    grid-template-rows: repeat(11, var(--cell-size)); 
+    /* Nutze den verfügbaren Platz im Container gleichmäßig */
+    grid-template-columns: repeat(11, 1fr); 
+    grid-template-rows: repeat(11, 1fr); 
     gap: 2px; 
     background-color: #222; 
     padding: 8px; 
     border: 4px solid #111; 
     border-radius: 8px; 
+    /* Fülle den Container komplett aus */
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box; /* Wichtig, damit Padding nicht die 100% sprengt */
 }
 
 .cell { 
-    width: var(--cell-size); 
-    height: var(--cell-size); 
+    /* Fülle das Grid-Feld komplett aus */
+    width: 100%; 
+    height: 100%; 
     border-radius: 50%; 
     position: relative; 
     background-color: #333; 
@@ -101,10 +110,10 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 .target-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
 .target-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
 
-/* Figuren (Größe passt sich jetzt auch an!) */
+/* Figuren passen sich jetzt relativ zur Zelle an */
 .piece {
-    width: var(--piece-size); 
-    height: var(--piece-size); 
+    width: 80%; /* 80% der Zellengröße */
+    height: 80%; 
     border-radius: 50%; 
     border: 2px solid white;
     box-shadow: 1px 2px 4px rgba(0,0,0,0.6); 
@@ -117,7 +126,7 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 }
 .piece::after { 
     content: ''; 
-    width: 25%; /* Relativ zur Figurgröße */
+    width: 25%; 
     height: 25%; 
     background-color: rgba(0,0,0,0.6); 
     border-radius: 50%; display: block; 
@@ -135,7 +144,7 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
     width: 100%; z-index: 20; flex-shrink: 0; 
 }
 button#rollBtn { 
-    padding: 8px 30px; /* Etwas kleiner für Mobile */
+    padding: 8px 30px;
     font-size: 1rem; 
     cursor: pointer; background-color: #333; color: white; border: none; border-radius: 25px; 
     box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 140px; 
