@@ -7,17 +7,20 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Mensch ärgere dich nicht</h1>
     
-    <div id="header-info">
-        <span id="my-status">Zuschauer</span> | 
-        <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
-    </div>
+    <div class="top-bar">
+        <h1>Mensch ärgere dich nicht</h1>
+        
+        <div id="header-info">
+            <span id="my-status">Zuschauer</span> | 
+            <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
+        </div>
 
-    <div id="setup-controls">
-        <input type="text" id="playerNameInput" placeholder="Dein Name" maxlength="12">
-        <button id="joinBtn" class="invite-btn">MITSPIELEN</button>
-        <button id="startBtn" class="bot-btn" style="display:none;">Spiel Starten (+Bots)</button>
+        <div id="setup-controls">
+            <input type="text" id="playerNameInput" placeholder="Dein Name" maxlength="12">
+            <button id="joinBtn" class="invite-btn">MITSPIELEN</button>
+            <button id="startBtn" class="bot-btn" style="display:none;">Spiel Starten (+Bots)</button>
+        </div>
     </div>
 
     <div class="board-wrapper">
@@ -42,7 +45,7 @@
     </div>
 
     <div id="log-container"></div>
-    <div id="version-tag">V2.0 (Fixed)</div>
+    <div id="version-tag">V2.1 (CSS Fix)</div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
