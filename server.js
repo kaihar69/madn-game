@@ -5,39 +5,25 @@ const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-// --- KONFIGURATION ---
 const TURN_ORDER = ['red', 'blue', 'green', 'yellow'];
 const START_OFFSETS = { 'red': 0, 'blue': 10, 'green': 20, 'yellow': 30 };
 const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
+const DELAY_AFTER_ROLL = 2500; 
+const DELAY_BETWEEN_TURNS = 2000; 
 
-// --- ZEITEN (Verlangsamt für bessere UX) ---
-const DELAY_AFTER_ROLL = 2500; // Zeit zum Lesen des Würfels
-const DELAY_BETWEEN_TURNS = 2000; // Zeit bis der nächste drankommt
-
-// --- SPIEL ZUSTAND ---
 let players = {};
 let turnIndex = 0;
 let gameRunning = false;
 
 io.on('connection', (socket) => {
-    console.log('Verbunden:', socket.id);
-
+    // ... (Verbindungslogik wie gehabt)
     if (Object.keys(players).length < 4 && !gameRunning) {
         const color = getColor(Object.keys(players).length);
-        players[socket.id] = {
-            id: socket.id,
-            color: color,
-            pieces: [-1, -1, -1, -1],
-            isBot: false,
-            lastRoll: null,
-            rollCount: 0
-        };
+        players[socket.id] = { id: socket.id, color: color, pieces: [-1, -1, -1, -1], isBot: false, lastRoll: null, rollCount: 0 };
         socket.emit('init', { id: socket.id, players: players });
         io.emit('updateBoard', players);
         socket.emit('turnUpdate', TURN_ORDER[turnIndex]);
-    } else {
-        socket.emit('full', 'Voll.');
-    }
+    } else { socket.emit('full', 'Voll.'); }
 
     socket.on('addBots', () => {
         if (gameRunning) return;
@@ -63,6 +49,15 @@ io.on('connection', (socket) => {
         const player = players[socket.id];
         if (!player || player.color !== TURN_ORDER[turnIndex] || !player.lastRoll) return;
         
+        // ZWANGSRÄUMEN PRÜFUNG für Menschen
+        // Wenn Zwang besteht, darf nur die Zwang-Figur bewegt werden
+        const forcedIndex = getForcedMoveIndex(player);
+        if (forcedIndex !== -1 && data.pieceIndex !== forcedIndex) {
+            // Wenn der Spieler eine andere Figur klickt als die erzwungene:
+            socket.emit('gameLog', "Zwangszug! Du musst den Startplatz räumen!");
+            return; // Klick ignorieren
+        }
+
         const rolledSix = (player.lastRoll === 6);
         if (tryMove(player, data.pieceIndex)) {
             io.emit('updateBoard', players);
@@ -72,14 +67,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        if(players[socket.id]) {
-            delete players[socket.id];
-            io.emit('updateBoard', players);
-        }
+        if(players[socket.id]) { delete players[socket.id]; io.emit('updateBoard', players); }
     });
 });
 
-// --- CORE LOGIK ---
+// --- LOGIK ---
 
 function handleRoll(player) {
     player.lastRoll = Math.floor(Math.random() * 6) + 1;
@@ -89,61 +81,49 @@ function handleRoll(player) {
     let canRetry = false;
     let movePossible = false;
 
-    // Logik: Darf er nochmal würfeln?
     if (allInHouse) {
-        if (roll === 6) {
-            canRetry = false; // Muss rausziehen!
-            movePossible = true;
-        } else {
-            if (player.rollCount < 3) {
-                canRetry = true;
-                player.lastRoll = null; // Reset für neuen Wurf
-            } else {
-                canRetry = false; // Ende Gelände
-                movePossible = false;
-            }
+        if (roll === 6) { canRetry = false; movePossible = true; }
+        else {
+            if (player.rollCount < 3) { canRetry = true; player.lastRoll = null; }
+            else { canRetry = false; movePossible = false; }
         }
     } else {
-        // Figuren draußen
-        if (canMoveAny(player)) {
-            canRetry = false; // Muss ziehen
-            movePossible = true;
-        } else {
-            canRetry = false; // Sackgasse
-            movePossible = false;
-        }
+        if (canMoveAny(player)) { canRetry = false; movePossible = true; }
+        else { canRetry = false; movePossible = false; }
     }
 
-    // Info an alle senden
     io.emit('diceRolled', { value: roll, player: player.color, canRetry: canRetry });
 
-    if (canRetry) {
-        io.emit('gameLog', `${player.color.toUpperCase()}: Versuch ${player.rollCount}/3 missglückt...`);
-    } else if (!movePossible && !canRetry && allInHouse) {
-        io.emit('gameLog', `${player.color.toUpperCase()} passt (3x fehlgeschlagen).`);
-    } else if (!movePossible && !allInHouse) {
-        io.emit('gameLog', `${player.color.toUpperCase()} kann nicht ziehen.`);
+    if (canRetry) io.emit('gameLog', `${player.color.toUpperCase()}: Versuch ${player.rollCount}/3...`);
+    else if (!movePossible) io.emit('gameLog', `${player.color.toUpperCase()} kann nicht ziehen.`);
+
+    if (player.isBot) {
+        if (canRetry) setTimeout(() => playBotRoll(player), DELAY_AFTER_ROLL);
+        else if (movePossible) setTimeout(() => playBotMove(player), DELAY_AFTER_ROLL);
+        else setTimeout(() => finishTurn(player, false), DELAY_AFTER_ROLL);
+    } else {
+        if (!canRetry && !movePossible) setTimeout(() => finishTurn(player, false), DELAY_AFTER_ROLL);
+    }
+}
+
+// ZWANGSZUG HELPER
+function getForcedMoveIndex(player) {
+    // 1. Habe ich noch Figuren im Haus?
+    const hasInHouse = player.pieces.some(p => p === -1);
+    if (!hasInHouse) return -1; // Nein -> Kein Zwang
+
+    // 2. Habe ich eine Figur auf meinem Startfeld?
+    const startPos = START_OFFSETS[player.color];
+    const indexOnStart = player.pieces.findIndex(p => p === startPos);
+    
+    if (indexOnStart === -1) return -1; // Niemand auf Start -> Kein Zwang
+
+    // 3. Kann diese Figur überhaupt ziehen? (Nicht blockiert)
+    if (isMoveValid(player, indexOnStart, player.lastRoll)) {
+        return indexOnStart; // JA! Das ist der Index, der gezogen werden MUSS.
     }
 
-    // BOT ENTSCHEIDUNG (Was passiert als nächstes?)
-    if (player.isBot) {
-        if (canRetry) {
-            // Nochmal würfeln nach Verzögerung
-            setTimeout(() => playBotRoll(player), DELAY_AFTER_ROLL);
-        } else if (movePossible) {
-            // Ziehen nach Verzögerung
-            setTimeout(() => playBotMove(player), DELAY_AFTER_ROLL);
-        } else {
-            // Zug beenden nach Verzögerung
-            setTimeout(() => finishTurn(player, false), DELAY_AFTER_ROLL);
-        }
-    } else {
-        // MENSCH:
-        // Wenn Sackgasse (nicht movePossible und nicht canRetry), automatisch beenden
-        if (!canRetry && !movePossible) {
-            setTimeout(() => finishTurn(player, false), DELAY_AFTER_ROLL);
-        }
-    }
+    return -1; // Figur auf Start ist blockiert -> Kein Zwang
 }
 
 function tryMove(player, pieceIndex) {
@@ -180,69 +160,80 @@ function tryMove(player, pieceIndex) {
     return true;
 }
 
-function finishTurn(player, wasSix) {
-    if (wasSix === undefined) wasSix = (player.lastRoll === 6);
+function isMoveValid(player, pieceIndex, roll) {
+    const currentPos = player.pieces[pieceIndex];
+    const startPos = START_OFFSETS[player.color];
 
-    if (wasSix) {
-        io.emit('gameLog', `${player.color.toUpperCase()} darf nochmal (6)!`);
-        player.lastRoll = null; 
-        player.rollCount = 0;   
-        io.emit('turnUpdate', player.color);
+    // Rauskommen
+    if (currentPos === -1) return (roll === 6 && !isOccupiedBySelf(player, startPos));
 
-        if(player.isBot) setTimeout(() => playBotRoll(player), DELAY_BETWEEN_TURNS);
-    } else {
-        player.lastRoll = null;
-        nextTurn();
+    let newPos;
+    // Ziel
+    if (currentPos >= 100) {
+        const currentTargetIndex = currentPos - 100;
+        const targetIndex = currentTargetIndex + roll;
+        if (targetIndex > 3) return false;
+        if (isPathBlockedInTarget(player, currentTargetIndex, targetIndex)) return false;
+        if (isOccupiedBySelf(player, 100 + targetIndex)) return false;
+        return true;
+    } 
+    // Feld
+    else {
+        const entryPoint = ENTRY_POINTS[player.color];
+        const distanceToEntry = (entryPoint - currentPos + 40) % 40;
+        if (distanceToEntry < roll) {
+            const stepsIntoTarget = roll - distanceToEntry - 1;
+            if (stepsIntoTarget > 3 || stepsIntoTarget < 0) return false;
+            if (isOccupiedBySelf(player, 100 + stepsIntoTarget)) return false;
+            return true;
+        } else {
+            newPos = (currentPos + roll) % 40;
+        }
     }
+
+    // --- IMMUNITÄTS REGEL ---
+    // Prüfen ob das Zielfeld von einem Gegner besetzt ist, der auf seinem Startfeld steht
+    let isProtected = false;
+    Object.values(players).forEach(other => {
+        if (other.id !== player.id) {
+            other.pieces.forEach(pos => {
+                if (pos === newPos) {
+                    // Steht dieser Gegner auf seinem EIGENEN Startfeld?
+                    if (pos === START_OFFSETS[other.color]) {
+                        isProtected = true;
+                    }
+                }
+            });
+        }
+    });
+
+    if (isProtected) return false; // Zug ungültig, da Gegner geschützt
+
+    return true; 
 }
 
-function nextTurn() {
-    turnIndex = (turnIndex + 1) % 4;
-    const nextColor = TURN_ORDER[turnIndex];
-    const nextPlayerId = Object.keys(players).find(id => players[id].color === nextColor);
-    if(nextPlayerId && players[nextPlayerId]) {
-        players[nextPlayerId].rollCount = 0;
-    }
-    io.emit('turnUpdate', nextColor);
-    checkBotTurn();
-}
-
-// --- BOT INTELLIGENZ ---
-
-function checkBotTurn() {
-    const currentColor = TURN_ORDER[turnIndex];
-    const playerID = Object.keys(players).find(id => players[id].color === currentColor);
-    const player = players[playerID];
-
-    if (player && player.isBot) {
-        setTimeout(() => playBotRoll(player), DELAY_BETWEEN_TURNS); // Startverzögerung
-    }
-}
-
-// Bot Schritt 1: Würfeln
-function playBotRoll(bot) {
-    handleRoll(bot);
-}
-
-// Bot Schritt 2: Ziehen (wird nur aufgerufen, wenn handleRoll sagt "Move Possible")
+// Bot Logik
 function playBotMove(bot) {
     if (!bot.lastRoll) return; 
 
+    // Zwangszug prüfen
+    const forcedIdx = getForcedMoveIndex(bot);
     let moved = false;
-    
-    // Strategie: Rauskommen > Schlagen > Laufen
-    if (bot.lastRoll === 6) {
-            const houseIdx = bot.pieces.findIndex(p => p === -1);
-            if (houseIdx !== -1 && tryMove(bot, houseIdx)) moved = true;
-    }
 
-    if (!moved) {
-        // Versuchen wir zu schlagen? (Einfache Simulation)
-        // Hier nehmen wir erstmal den ersten gültigen Zug
-        for (let i = 0; i < 4; i++) {
-            if (tryMove(bot, i)) {
-                moved = true;
-                break;
+    if (forcedIdx !== -1) {
+        // Bot MUSS Zwangszug machen
+        if (tryMove(bot, forcedIdx)) moved = true;
+    } else {
+        // Normale KI
+        // 1. Rauskommen
+        if (bot.lastRoll === 6) {
+             const houseIdx = bot.pieces.findIndex(p => p === -1);
+             if (houseIdx !== -1 && tryMove(bot, houseIdx)) moved = true;
+        }
+        // 2. Beliebiger Zug
+        if (!moved) {
+            for (let i = 0; i < 4; i++) {
+                if (tryMove(bot, i)) { moved = true; break; }
             }
         }
     }
@@ -250,59 +241,57 @@ function playBotMove(bot) {
     if (moved) {
         io.emit('updateBoard', players);
         checkWin(bot);
-        // Prüfen ob es eine 6 war für den Folgezug
         finishTurn(bot, bot.lastRoll === 6);
     } else {
-        // Fallback (sollte durch handleRoll Logik eigentlich nicht passieren, aber sicher ist sicher)
         finishTurn(bot, false); 
     }
 }
 
-function canMoveAny(player) {
-    for (let i = 0; i < 4; i++) {
-        if (isMoveValid(player, i, player.lastRoll)) return true;
-    }
-    return false;
-}
+function playBotRoll(bot) { handleRoll(bot); }
 
-function isMoveValid(player, pieceIndex, roll) {
-    const currentPos = player.pieces[pieceIndex];
-    const startPos = START_OFFSETS[player.color];
-    const entryPoint = ENTRY_POINTS[player.color];
-
-    if (currentPos === -1) {
-        return (roll === 6 && !isOccupiedBySelf(player, startPos));
-    } else if (currentPos >= 100) {
-        const currentTargetIndex = currentPos - 100;
-        const targetIndex = currentTargetIndex + roll;
-        if (targetIndex > 3) return false;
-        if (isPathBlockedInTarget(player, currentTargetIndex, targetIndex)) return false;
-        if (isOccupiedBySelf(player, 100 + targetIndex)) return false;
-        return true;
+function finishTurn(player, wasSix) {
+    if (wasSix === undefined) wasSix = (player.lastRoll === 6);
+    if (wasSix) {
+        io.emit('gameLog', `Nochmal (6)!`);
+        player.lastRoll = null; player.rollCount = 0;   
+        io.emit('turnUpdate', player.color);
+        if(player.isBot) setTimeout(() => playBotRoll(player), DELAY_BETWEEN_TURNS);
     } else {
-        const distanceToEntry = (entryPoint - currentPos + 40) % 40;
-        if (distanceToEntry < roll) {
-            const stepsIntoTarget = roll - distanceToEntry - 1;
-            if (stepsIntoTarget > 3 || stepsIntoTarget < 0) return false;
-            if (isOccupiedBySelf(player, 100 + stepsIntoTarget)) return false;
-            return true;
-        }
-        return true; 
+        player.lastRoll = null; nextTurn();
     }
 }
 
-// --- HELPER ---
+function nextTurn() {
+    turnIndex = (turnIndex + 1) % 4;
+    const nextColor = TURN_ORDER[turnIndex];
+    const nextPlayerId = Object.keys(players).find(id => players[id].color === nextColor);
+    if(nextPlayerId && players[nextPlayerId]) players[nextPlayerId].rollCount = 0;
+    io.emit('turnUpdate', nextColor);
+    checkBotTurn();
+}
+
+function checkBotTurn() {
+    const currentColor = TURN_ORDER[turnIndex];
+    const playerID = Object.keys(players).find(id => players[id].color === currentColor);
+    const player = players[playerID];
+    if (player && player.isBot) setTimeout(() => playBotRoll(player), DELAY_BETWEEN_TURNS);
+}
+
 function getColor(index) { return ['red', 'blue', 'green', 'yellow'][index]; }
 function isOccupiedBySelf(player, pos) { return player.pieces.includes(pos); }
 function isPathBlockedInTarget(player, startIdx, endIdx) {
-    for (let i = startIdx + 1; i < endIdx; i++) {
-        if (player.pieces.includes(100 + i)) return true;
-    }
+    for (let i = startIdx + 1; i < endIdx; i++) { if (player.pieces.includes(100 + i)) return true; }
     return false;
 }
-function checkWin(player) {
-    if (player.pieces.every(p => p >= 100)) io.emit('gameLog', `SIEG!!! ${player.color.toUpperCase()} HAT GEWONNEN!`);
+function canMoveAny(player) {
+    // Wenn Zwang besteht, ist NUR der Zwangszug "Any Move"
+    const forced = getForcedMoveIndex(player);
+    if (forced !== -1) return true; 
+
+    for (let i = 0; i < 4; i++) { if (isMoveValid(player, i, player.lastRoll)) return true; }
+    return false;
 }
+function checkWin(player) { if (player.pieces.every(p => p >= 100)) io.emit('gameLog', `SIEG!!!`); }
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Server auf Port ${PORT}`));
