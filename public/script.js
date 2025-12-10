@@ -2,7 +2,7 @@ const socket = io();
 
 // --- KOORDINATEN KONFIGURATION ---
 
-// Weg (0-39)
+// Weg (0-39) - Der Hauptpfad
 const pathMap = [
     {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
     {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
@@ -18,7 +18,7 @@ const pathMap = [
     {x:0, y:5}                                                  
 ];
 
-// Start-Häuser (Base)
+// Start-Häuser (Base) - Wo die Figuren warten (-1)
 const basePositions = {
     'red':   [{x:0, y:0}, {x:1, y:0}, {x:0, y:1}, {x:1, y:1}],
     'blue':  [{x:9, y:0}, {x:10, y:0}, {x:9, y:1}, {x:10, y:1}],
@@ -26,7 +26,7 @@ const basePositions = {
     'yellow':[{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}]
 };
 
-// Ziel-Felder (Mitte)
+// Ziel-Felder (Mitte) - Wo man hin muss (100+)
 const targetPositions = {
     'red':   [{x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}],
     'blue':  [{x:5, y:1}, {x:5, y:2}, {x:5, y:3}, {x:5, y:4}],
@@ -43,6 +43,7 @@ const turnName = document.getElementById('current-player-name');
 const startBtn = document.getElementById('startWithBotsBtn');
 let myColor = null;
 
+// Board einmalig aufbauen (nur das Gitter und die Farben)
 function initBoard() {
     boardElement.innerHTML = '';
     for (let y = 0; y < 11; y++) {
@@ -50,10 +51,11 @@ function initBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             
-            // Visualisierung
+            // Visualisierung des Pfades
             const isPath = pathMap.some(p => p.x === x && p.y === y);
             if(isPath) cell.classList.add('path');
             
+            // Visualisierung der Ecken
             if (x < 4 && y < 4) cell.classList.add('base-red');
             if (x > 6 && y < 4) cell.classList.add('base-blue');
             if (x < 4 && y > 6) cell.classList.add('base-green');
@@ -66,7 +68,7 @@ function initBoard() {
 }
 initBoard();
 
-// --- BUTTONS ---
+// --- BUTTON EVENTS ---
 
 rollBtn.addEventListener('click', () => {
     socket.emit('rollDice');
@@ -93,17 +95,30 @@ socket.on('updateBoard', (players) => {
     renderPieces(players);
 });
 
+// Hier ist das Update für die 3 Versuche:
 socket.on('diceRolled', (data) => {
     document.getElementById('diceResult').innerText = `${data.player.toUpperCase()} würfelt: ${data.value}`;
-    rollBtn.disabled = true; // Nach dem Würfeln muss man ziehen (oder warten)
+    
+    // Wenn ich dran bin UND der Server sagt "canRetry" (weil ich 3 Versuche habe)
+    if (data.player === myColor && data.canRetry) {
+        rollBtn.disabled = false;
+        rollBtn.innerText = "Nochmal würfeln!";
+    } else {
+        // Normalfall: Button aus, jetzt muss gezogen werden (oder Zug ist vorbei)
+        rollBtn.disabled = true;
+        rollBtn.innerText = `Gewürfelt: ${data.value}`;
+    }
 });
 
 socket.on('turnUpdate', (activeColor) => {
     turnName.innerText = activeColor.toUpperCase();
+    
+    // Visuelles Feedback
     turnDisplay.className = ''; 
     turnDisplay.classList.add('active-turn');
     turnDisplay.style.borderColor = getHexColor(activeColor);
 
+    // Button steuern: Bin ich dran?
     if (myColor === activeColor) {
         rollBtn.disabled = false;
         rollBtn.innerText = "Würfeln";
@@ -116,12 +131,17 @@ socket.on('turnUpdate', (activeColor) => {
 socket.on('gameLog', (msg) => {
     const logDiv = document.getElementById('log-container');
     logDiv.innerText = msg;
-    setTimeout(() => { logDiv.innerText = ''; }, 4000);
+    // Löscht Nachricht nach 4 Sekunden
+    setTimeout(() => { 
+        // Nur löschen, wenn noch dieselbe Nachricht drin steht
+        if(logDiv.innerText === msg) logDiv.innerText = ''; 
+    }, 4000);
 });
 
-// --- RENDER LOGIC ---
+// --- FIGUREN RENDERN ---
 
 function renderPieces(players) {
+    // Alte Figuren entfernen
     document.querySelectorAll('.piece').forEach(e => e.remove());
 
     Object.values(players).forEach(player => {
@@ -129,38 +149,40 @@ function renderPieces(players) {
             let x, y;
 
             if (posIndex === -1) {
-                // BASE
+                // BASE (Im Haus)
                 const baseCoords = basePositions[player.color][pieceIndex];
                 x = baseCoords.x;
                 y = baseCoords.y;
             } else if (posIndex >= 100) {
-                // ZIEL (100+)
+                // ZIEL (Im Ziel-Einlauf)
                 const targetIndex = posIndex - 100;
-                // Safety check
                 if(targetPositions[player.color][targetIndex]) {
                     const t = targetPositions[player.color][targetIndex];
                     x = t.x; y = t.y;
                 }
             } else {
-                // FELD
+                // FELD (Auf dem Weg)
                 if (pathMap[posIndex]) {
                     x = pathMap[posIndex].x;
                     y = pathMap[posIndex].y;
                 }
             }
 
+            // Figur erstellen und ins DOM hängen
             if (x !== undefined && y !== undefined) {
                 const cell = document.getElementById(`cell-${x}-${y}`);
                 if (cell) {
                     const piece = document.createElement('div');
                     piece.classList.add('piece', player.color);
                     
-                    // Interaktion nur wenn ich dran bin und es meine Farbe ist
+                    // Klick-Logik: Nur wenn ich dran bin und es meine Figur ist
                     if (player.color === myColor) {
                         piece.onclick = () => {
                             socket.emit('movePiece', { pieceIndex: pieceIndex });
                         };
                         piece.style.cursor = "pointer";
+                        // Optional: Highlighten, welche Figur bewegt werden kann?
+                        // Das ist komplexer, lassen wir erstmal weg.
                     } else {
                         piece.style.cursor = "default";
                     }
@@ -171,6 +193,7 @@ function renderPieces(players) {
     });
 }
 
+// Hilfsfunktion für Farben
 function getHexColor(name) {
     if(name === 'red') return '#d32f2f';
     if(name === 'blue') return '#1976d2';
