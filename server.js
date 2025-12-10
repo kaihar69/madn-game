@@ -58,10 +58,15 @@ io.on('connection', (socket) => {
     socket.on('movePiece', (data) => {
         const player = players[socket.id];
         if (!player || player.color !== TURN_ORDER[turnIndex] || !player.lastRoll) return;
+        
+        // Wir speichern das Wurfergebnis kurz zwischen, bevor tryMove es evtl. löscht oder verändert
+        const rolledSix = (player.lastRoll === 6);
+
         if (tryMove(player, data.pieceIndex)) {
             io.emit('updateBoard', players);
             checkWin(player);
-            finishTurn(player);
+            // Hier übergeben wir explizit, ob es eine 6 war
+            finishTurn(player, rolledSix);
         }
     });
 
@@ -83,14 +88,18 @@ function handleRoll(player) {
     
     if (allInHouse) {
         if (roll === 6) {
+            // Eine 6! Egal ob 1., 2. oder 3. Versuch -> Rauskommen!
             io.emit('diceRolled', { value: roll, player: player.color, canRetry: false });
         } else {
+            // Keine 6
             if (player.rollCount < 3) {
+                // Darf nochmal
                 player.lastRoll = null; 
                 io.emit('diceRolled', { value: roll, player: player.color, canRetry: true });
                 io.emit('gameLog', `${player.color.toUpperCase()}: Versuch ${player.rollCount}/3 missglückt...`);
-                if(player.isBot) setTimeout(() => playBotRound(player), 1500); // 1.5s warten für Animation
+                if(player.isBot) setTimeout(() => playBotRound(player), 1500);
             } else {
+                // 3x versemmelt -> Nächster
                 io.emit('diceRolled', { value: roll, player: player.color, canRetry: false });
                 io.emit('gameLog', `${player.color.toUpperCase()} passt (3x fail).`);
                 setTimeout(() => nextTurn(), 2000);
@@ -107,6 +116,74 @@ function handleRoll(player) {
     }
 }
 
+function tryMove(player, pieceIndex) {
+    if (!isMoveValid(player, pieceIndex, player.lastRoll)) return false;
+
+    const currentPos = player.pieces[pieceIndex];
+    const roll = player.lastRoll;
+    let newPos;
+
+    if (currentPos === -1) newPos = START_OFFSETS[player.color];
+    else if (currentPos >= 100) newPos = 100 + (currentPos - 100 + roll);
+    else {
+        const entryPoint = ENTRY_POINTS[player.color];
+        const distanceToEntry = (entryPoint - currentPos + 40) % 40;
+        if (distanceToEntry < roll) newPos = 100 + (roll - distanceToEntry - 1);
+        else newPos = (currentPos + roll) % 40;
+    }
+
+    // Schlagen
+    if (newPos < 100) {
+        Object.values(players).forEach(other => {
+            if (other.id !== player.id) {
+                other.pieces.forEach((pos, idx) => {
+                    if (pos === newPos) {
+                        other.pieces[idx] = -1;
+                        io.emit('gameLog', `${player.color.toUpperCase()} kickt ${other.color.toUpperCase()}!`);
+                    }
+                });
+            }
+        });
+    }
+
+    player.pieces[pieceIndex] = newPos;
+    return true;
+}
+
+// WICHTIG: Hier habe ich die Logik angepasst
+function finishTurn(player, wasSix) {
+    // Falls wasSix nicht übergeben wurde (Fallback), nutzen wir lastRoll
+    if (wasSix === undefined) wasSix = (player.lastRoll === 6);
+
+    if (wasSix) {
+        io.emit('gameLog', `${player.color.toUpperCase()} darf nochmal (6)!`);
+        
+        player.lastRoll = null; // Wurf verbraucht, bereit für neuen
+        player.rollCount = 0;   // Zähler resetten, da neuer Zug beginnt
+
+        // DAS WAR DER FIX:
+        // Wir müssen dem Frontend sagen: "Hey, Spieler X ist immer noch dran!"
+        // Damit wird der Button wieder aktiviert.
+        io.emit('turnUpdate', player.color);
+
+        if(player.isBot) setTimeout(() => playBotRound(player), 1500);
+    } else {
+        player.lastRoll = null;
+        nextTurn();
+    }
+}
+
+function nextTurn() {
+    turnIndex = (turnIndex + 1) % 4;
+    const nextColor = TURN_ORDER[turnIndex];
+    const nextPlayerId = Object.keys(players).find(id => players[id].color === nextColor);
+    if(nextPlayerId && players[nextPlayerId]) {
+        players[nextPlayerId].rollCount = 0;
+    }
+    io.emit('turnUpdate', nextColor);
+    checkBotTurn();
+}
+
 function canMoveAny(player) {
     for (let i = 0; i < 4; i++) {
         if (isMoveValid(player, i, player.lastRoll)) return true;
@@ -120,6 +197,7 @@ function isMoveValid(player, pieceIndex, roll) {
     const entryPoint = ENTRY_POINTS[player.color];
 
     if (currentPos === -1) {
+        // Rauskommen braucht 6
         return (roll === 6 && !isOccupiedBySelf(player, startPos));
     } else if (currentPos >= 100) {
         const currentTargetIndex = currentPos - 100;
@@ -140,62 +218,6 @@ function isMoveValid(player, pieceIndex, roll) {
     }
 }
 
-function tryMove(player, pieceIndex) {
-    if (!isMoveValid(player, pieceIndex, player.lastRoll)) return false;
-
-    const currentPos = player.pieces[pieceIndex];
-    const roll = player.lastRoll;
-    let newPos;
-
-    if (currentPos === -1) newPos = START_OFFSETS[player.color];
-    else if (currentPos >= 100) newPos = 100 + (currentPos - 100 + roll);
-    else {
-        const entryPoint = ENTRY_POINTS[player.color];
-        const distanceToEntry = (entryPoint - currentPos + 40) % 40;
-        if (distanceToEntry < roll) newPos = 100 + (roll - distanceToEntry - 1);
-        else newPos = (currentPos + roll) % 40;
-    }
-
-    if (newPos < 100) {
-        Object.values(players).forEach(other => {
-            if (other.id !== player.id) {
-                other.pieces.forEach((pos, idx) => {
-                    if (pos === newPos) {
-                        other.pieces[idx] = -1;
-                        io.emit('gameLog', `${player.color.toUpperCase()} kickt ${other.color.toUpperCase()}!`);
-                    }
-                });
-            }
-        });
-    }
-
-    player.pieces[pieceIndex] = newPos;
-    return true;
-}
-
-function finishTurn(player) {
-    if (player.lastRoll === 6) {
-        io.emit('gameLog', `${player.color.toUpperCase()} darf nochmal (6)!`);
-        player.lastRoll = null;
-        player.rollCount = 0; 
-        if(player.isBot) setTimeout(() => playBotRound(player), 1500);
-    } else {
-        player.lastRoll = null;
-        nextTurn();
-    }
-}
-
-function nextTurn() {
-    turnIndex = (turnIndex + 1) % 4;
-    const nextColor = TURN_ORDER[turnIndex];
-    const nextPlayerId = Object.keys(players).find(id => players[id].color === nextColor);
-    if(nextPlayerId && players[nextPlayerId]) {
-        players[nextPlayerId].rollCount = 0;
-    }
-    io.emit('turnUpdate', nextColor);
-    checkBotTurn();
-}
-
 // --- BOT LOGIK ---
 function checkBotTurn() {
     const currentColor = TURN_ORDER[turnIndex];
@@ -211,17 +233,15 @@ function playBotRound(bot) {
     handleRoll(bot);
     
     setTimeout(() => {
-        if (!bot.lastRoll) return; // Wenn Retry (3x im Haus), macht handleRoll weiter
+        if (!bot.lastRoll) return; 
 
         let moved = false;
         
-        // 1. Prio: Rauskommen
         if (bot.lastRoll === 6) {
              const houseIdx = bot.pieces.findIndex(p => p === -1);
              if (houseIdx !== -1 && tryMove(bot, houseIdx)) moved = true;
         }
 
-        // 2. Prio: Schlagen/Laufen
         if (!moved) {
             for (let i = 0; i < 4; i++) {
                 if (tryMove(bot, i)) {
@@ -234,15 +254,13 @@ function playBotRound(bot) {
         if (moved) {
             io.emit('updateBoard', players);
             checkWin(bot);
-            finishTurn(bot);
+            // Move Funktion ruft finishTurn auf
         } else {
-            // FIX FÜR DEN STUCK-BUG:
-            // Wenn der Bot gewürfelt hat, aber nichts ziehen kann (und handleRoll es nicht abgefangen hat)
-            // MUSS er den Zug beenden.
-            finishTurn(bot);
+            // Wenn nichts geht -> Ende
+            finishTurn(bot, false); 
         }
 
-    }, 1500); // Warten bis Animation vorbei ist
+    }, 1500);
 }
 
 // --- HELPER ---
