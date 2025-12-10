@@ -11,17 +11,13 @@ const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
 const DELAY_AFTER_ROLL = 2000; 
 const DELAY_BETWEEN_TURNS = 1500; 
 
-// Wir nutzen einen persistenten Globalen Raum, damit Spiele nicht verloren gehen
 const games = {}; 
 games['global'] = createNewGame(); 
 
 io.on('connection', (socket) => {
     socket.join('global'); 
-    
-    // Status sofort senden
     emitStatus(socket);
 
-    // --- JOIN ---
     socket.on('requestJoin', (playerName) => {
         try {
             if (getGameRunning()) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
@@ -30,8 +26,6 @@ io.on('connection', (socket) => {
             const game = games[roomId];
 
             if (Object.keys(game.players).length >= 4) { socket.emit('joinError', 'Lobby ist voll!'); return; }
-            
-            // Name Check
             const nameExists = Object.values(game.players).some(p => p.name === playerName);
             if(nameExists) { socket.emit('joinError', 'Name vergeben!'); return; }
 
@@ -50,7 +44,6 @@ io.on('connection', (socket) => {
         } catch (e) { console.error("Join Error", e); }
     });
 
-    // --- START ---
     socket.on('startGame', () => {
         try {
             const roomId = 'global';
@@ -74,56 +67,37 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('updateBoard', game.players);
             io.to(roomId).emit('gameStarted');
             broadcastStatus(roomId);
-            
             setTimeout(() => checkBotTurn(roomId), 1000);
-            
         } catch (e) { console.error("Start Error", e); }
     });
 
-    // --- ROLL ---
     socket.on('rollDice', () => {
         try {
             const roomId = 'global';
             const game = games[roomId];
             const player = game.players[socket.id];
-
-            // SICHERHEITS-CHECK: Wenn Server den Spieler nicht kennt -> Reload erzwingen
             if (!player) { socket.emit('sessionLost'); return; }
-            
             if (!game.running || player.color !== TURN_ORDER[game.turnIndex] || player.lastRoll) return;
-            
             handleRoll(roomId, player);
         } catch (e) { console.error("Roll Error", e); }
     });
 
-    // --- MOVE ---
     socket.on('movePiece', (data) => {
         try {
             const roomId = 'global';
             const game = games[roomId];
             const player = game.players[socket.id];
-
-            // SICHERHEITS-CHECK
             if (!player) { socket.emit('sessionLost'); return; }
-
             if (!game.running || player.color !== TURN_ORDER[game.turnIndex] || !player.lastRoll) return;
             
-            // Zwangszug Check
             const forcedIndex = getForcedMoveIndex(game, player);
             if (forcedIndex !== -1) {
                 const isForcedInHouse = player.pieces[forcedIndex] === -1;
                 const isSelectedInHouse = player.pieces[data.pieceIndex] === -1;
-
                 if (isForcedInHouse) {
-                    if (!isSelectedInHouse) {
-                        socket.emit('gameLog', "Zwang: Du musst rauskommen!");
-                        return;
-                    }
+                    if (!isSelectedInHouse) { socket.emit('gameLog', "Zwang: Du musst rauskommen!"); return; }
                 } else {
-                    if (data.pieceIndex !== forcedIndex) {
-                        socket.emit('gameLog', "Zwang: Startplatz räumen!");
-                        return;
-                    }
+                    if (data.pieceIndex !== forcedIndex) { socket.emit('gameLog', "Zwang: Startplatz räumen!"); return; }
                 }
             }
 
@@ -136,13 +110,11 @@ io.on('connection', (socket) => {
         } catch (e) { console.error("Move Error", e); }
     });
 
-    // --- DISCONNECT ---
     socket.on('disconnect', () => {
         const roomId = 'global';
         const game = games[roomId];
         if (game && game.players[socket.id]) {
             const player = game.players[socket.id];
-            
             if (!game.running) {
                 delete game.players[socket.id];
                 io.to(roomId).emit('updateBoard', game.players);
@@ -150,25 +122,14 @@ io.on('connection', (socket) => {
             } else {
                 io.to(roomId).emit('gameLog', `${player.name} weg. Bot übernimmt.`);
                 const botId = `bot-rep-${Date.now()}`;
-                
-                // Bot übernimmt exakt den Status des Spielers
-                game.players[botId] = {
-                    ...player, id: botId, name: `${player.name} (Bot)`, isBot: true
-                };
+                game.players[botId] = { ...player, id: botId, name: `${player.name} (Bot)`, isBot: true };
                 delete game.players[socket.id];
                 io.to(roomId).emit('updateBoard', game.players);
                 
-                // Falls er dran war: Bot muss sofort weitermachen!
                 if (game.players[botId].color === TURN_ORDER[game.turnIndex]) {
-                    // War er schon beim Würfeln fertig?
-                    if (game.players[botId].lastRoll) {
-                         setTimeout(() => playBotMove(roomId, game.players[botId]), 1000);
-                    } else {
-                         setTimeout(() => playBotRoll(roomId, game.players[botId]), 1000);
-                    }
+                    if (game.players[botId].lastRoll) { setTimeout(() => playBotMove(roomId, game.players[botId]), 1000); } 
+                    else { setTimeout(() => playBotRoll(roomId, game.players[botId]), 1000); }
                 }
-                
-                // Reset wenn alle Menschen weg
                 const humanLeft = Object.values(game.players).some(p => !p.isBot);
                 if (!humanLeft) setTimeout(() => resetGame(roomId), 5000);
             }
@@ -177,7 +138,8 @@ io.on('connection', (socket) => {
 });
 
 // --- HELPER ---
-function createNewGame() { return { players: {}, turnIndex: 0, running: false }; }
+// FIX: winnerDeclared Flag hinzugefügt
+function createNewGame() { return { players: {}, turnIndex: 0, running: false, winnerDeclared: false }; }
 function getGameRunning() { return games['global'] && games['global'].running; }
 function resetGame(roomId) {
     if(games[roomId]) {
@@ -210,35 +172,26 @@ function handleRoll(roomId, player) {
     const game = games[roomId];
     player.lastRoll = Math.floor(Math.random() * 6) + 1;
     player.rollCount++; 
-    
     const roll = player.lastRoll;
     let canRetry = false;
     let movePossible = false;
-
-    // 3-Versuche Regel (Spielfeld leer)
     const noPiecesOnField = player.pieces.every(p => p === -1 || p >= 100);
 
     if (noPiecesOnField) {
-        if (roll === 6) { 
-            canRetry = false; movePossible = true; 
-        } else {
-            if (canMoveAny(game, player)) {
-                canRetry = false; movePossible = true;
-            } else {
-                if (player.rollCount < 3) {
-                    canRetry = true; player.lastRoll = null;
-                } else {
-                    canRetry = false; movePossible = false;
-                }
+        if (roll === 6) { canRetry = false; movePossible = true; } 
+        else {
+            if (canMoveAny(game, player)) { canRetry = false; movePossible = true; } 
+            else {
+                if (player.rollCount < 3) { canRetry = true; player.lastRoll = null; } 
+                else { canRetry = false; movePossible = false; }
             }
         }
     } else {
-        if (canMoveAny(game, player)) { canRetry = false; movePossible = true; }
+        if (canMoveAny(game, player)) { canRetry = false; movePossible = true; } 
         else { canRetry = false; movePossible = false; }
     }
 
     io.to(roomId).emit('diceRolled', { value: roll, player: player.color, canRetry: canRetry });
-
     if (canRetry) io.to(roomId).emit('gameLog', `${player.name}: Versuch ${player.rollCount}/3...`);
     else if (!movePossible) io.to(roomId).emit('gameLog', `${player.name} kann nicht ziehen.`);
 
@@ -254,7 +207,6 @@ function handleRoll(roomId, player) {
 function getForcedMoveIndex(game, player) {
     const hasInHouse = player.pieces.some(p => p === -1);
     const startPos = START_OFFSETS[player.color];
-    
     if (player.lastRoll === 6 && hasInHouse) {
         if (!isOccupiedBySelf(player, startPos)) return player.pieces.findIndex(p => p === -1);
     }
@@ -268,11 +220,9 @@ function getForcedMoveIndex(game, player) {
 function tryMove(roomId, player, pieceIndex) {
     const game = games[roomId];
     if (!isMoveValid(game, player, pieceIndex, player.lastRoll)) return false;
-
     const currentPos = player.pieces[pieceIndex];
     const roll = player.lastRoll;
     let newPos;
-
     if (currentPos === -1) newPos = START_OFFSETS[player.color];
     else if (currentPos >= 100) newPos = 100 + (currentPos - 100 + roll);
     else {
@@ -281,7 +231,6 @@ function tryMove(roomId, player, pieceIndex) {
         if (distanceToEntry < roll) newPos = 100 + (roll - distanceToEntry - 1);
         else newPos = (currentPos + roll) % 40;
     }
-
     if (newPos < 100) {
         Object.values(game.players).forEach(other => {
             if (other.id !== player.id) {
@@ -302,9 +251,7 @@ function isMoveValid(game, player, pieceIndex, roll) {
     if(!player) return false;
     const currentPos = player.pieces[pieceIndex];
     const startPos = START_OFFSETS[player.color];
-
     if (currentPos === -1) return (roll === 6 && !isOccupiedBySelf(player, startPos));
-
     let newPos;
     if (currentPos >= 100) {
         const currentTargetIndex = currentPos - 100;
@@ -326,7 +273,6 @@ function isMoveValid(game, player, pieceIndex, roll) {
             if (isOccupiedBySelf(player, newPos)) return false;
         }
     }
-
     let isProtected = false;
     Object.values(game.players).forEach(other => {
         if (other.id !== player.id) {
@@ -351,9 +297,7 @@ function playBotMove(roomId, bot) {
              const houseIdx = bot.pieces.findIndex(p => p === -1);
              if (houseIdx !== -1 && tryMove(roomId, bot, houseIdx)) moved = true;
         }
-        if (!moved) {
-            for (let i = 0; i < 4; i++) { if (tryMove(roomId, bot, i)) { moved = true; break; } }
-        }
+        if (!moved) { for (let i = 0; i < 4; i++) { if (tryMove(roomId, bot, i)) { moved = true; break; } } }
     }
     if (moved) {
         io.to(roomId).emit('updateBoard', game.players);
@@ -413,7 +357,21 @@ function canMoveAny(game, player) {
     for (let i = 0; i < 4; i++) { if (isMoveValid(game, player, i, player.lastRoll)) return true; }
     return false;
 }
-function checkWin(roomId, player) { if (player.pieces.every(p => p >= 100)) { io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); setTimeout(() => resetGame(roomId), 10000); } }
+
+// FIX: DOPPELTE NAMEN BEHOBEN
+// checkWin prüft jetzt 'winnerDeclared', damit die Nachricht nur 1x kommt
+function checkWin(roomId, player) { 
+    const game = games[roomId];
+    if (!game) return;
+
+    if (player.pieces.every(p => p >= 100)) {
+        if (!game.winnerDeclared) { // NUR WENN NOCH NICHT GEWONNEN WURDE
+            game.winnerDeclared = true;
+            io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); 
+            setTimeout(() => resetGame(roomId), 10000); 
+        }
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Server auf Port ${PORT}`));
