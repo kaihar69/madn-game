@@ -2,13 +2,33 @@ const socket = io();
 
 // --- KONFIGURATION ---
 const pathMap = [
-    {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
-    {x:5, y:0}, {x:6, y:0}, {x:6, y:1}, {x:6, y:2}, {x:6, y:3}, {x:6, y:4}, {x:7, y:4}, {x:8, y:4}, {x:9, y:4}, {x:10, y:4},            
-    {x:10, y:5}, {x:10, y:6}, {x:9, y:6}, {x:8, y:6}, {x:7, y:6}, {x:6, y:6}, {x:6, y:7}, {x:6, y:8}, {x:6, y:9}, {x:6, y:10},            
-    {x:5, y:10}, {x:4, y:10}, {x:4, y:9}, {x:4, y:8}, {x:4, y:7}, {x:4, y:6}, {x:3, y:6}, {x:2, y:6}, {x:1, y:6}, {x:0, y:6}, {x:0, y:5}                                                  
+    {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
+    {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
+    {x:5, y:0}, {x:6, y:0},                                     
+    {x:6, y:1}, {x:6, y:2}, {x:6, y:3}, {x:6, y:4},             
+    {x:7, y:4}, {x:8, y:4}, {x:9, y:4}, {x:10, y:4},            
+    {x:10, y:5}, {x:10, y:6},                                   
+    {x:9, y:6}, {x:8, y:6}, {x:7, y:6}, {x:6, y:6},             
+    {x:6, y:7}, {x:6, y:8}, {x:6, y:9}, {x:6, y:10},            
+    {x:5, y:10}, {x:4, y:10},                                   
+    {x:4, y:9}, {x:4, y:8}, {x:4, y:7}, {x:4, y:6},             
+    {x:3, y:6}, {x:2, y:6}, {x:1, y:6}, {x:0, y:6},             
+    {x:0, y:5}                                                  
 ];
-const basePositions = { 'red': [{x:0, y:0}, {x:1, y:0}, {x:0, y:1}, {x:1, y:1}], 'blue': [{x:9, y:0}, {x:10, y:0}, {x:9, y:1}, {x:10, y:1}], 'green': [{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}], 'yellow':[{x:0, y:9}, {x:1, y:9}, {x:0, y:10}, {x:1, y:10}] };
-const targetPositions = { 'red': [{x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}], 'blue': [{x:5, y:1}, {x:5, y:2}, {x:5, y:3}, {x:5, y:4}], 'green': [{x:9, y:5}, {x:8, y:5}, {x:7, y:5}, {x:6, y:5}], 'yellow':[{x:5, y:9}, {x:5, y:8}, {x:5, y:7}, {x:5, y:6}] };
+
+const basePositions = {
+    'red':   [{x:0, y:0}, {x:1, y:0}, {x:0, y:1}, {x:1, y:1}],
+    'blue':  [{x:9, y:0}, {x:10, y:0}, {x:9, y:1}, {x:10, y:1}],
+    'green': [{x:9, y:9}, {x:10, y:9}, {x:9, y:10}, {x:10, y:10}],
+    'yellow':[{x:0, y:9}, {x:1, y:9}, {x:0, y:10}, {x:1, y:10}]
+};
+
+const targetPositions = {
+    'red':   [{x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}],
+    'blue':  [{x:5, y:1}, {x:5, y:2}, {x:5, y:3}, {x:5, y:4}],
+    'green': [{x:9, y:5}, {x:8, y:5}, {x:7, y:5}, {x:6, y:5}],
+    'yellow':[{x:5, y:9}, {x:5, y:8}, {x:5, y:7}, {x:5, y:6}]
+};
 
 // --- INIT ---
 const boardElement = document.getElementById('board');
@@ -28,6 +48,7 @@ function initBoard() {
         for (let x = 0; x < 11; x++) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
+            
             const pathIndex = pathMap.findIndex(p => p.x === x && p.y === y);
             if(pathIndex !== -1) {
                 cell.classList.add('path');
@@ -36,8 +57,14 @@ function initBoard() {
                 if (pathIndex === 20) cell.classList.add('start-field-green');
                 if (pathIndex === 30) cell.classList.add('start-field-yellow');
             }
-            Object.entries(basePositions).forEach(([color, positions]) => { if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`base-${color}`); });
-            Object.entries(targetPositions).forEach(([color, positions]) => { if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`target-${color}`); });
+            
+            Object.entries(basePositions).forEach(([color, positions]) => {
+                if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`base-${color}`);
+            });
+            Object.entries(targetPositions).forEach(([color, positions]) => {
+                if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`target-${color}`); 
+            });
+
             cell.id = `cell-${x}-${y}`;
             boardElement.appendChild(cell);
         }
@@ -59,12 +86,14 @@ socket.on('serverStatus', (info) => {
         joinBtn.style.display = 'none'; nameInput.style.display = 'none'; 
         if (!info.running) { startBtn.style.display = 'inline-block'; startBtn.innerText = `Start (${info.count}/4)`; } 
         else { startBtn.style.display = 'none'; }
+        setTimeout(adjustLayout, 100); // Layout nach Button-Change anpassen
         return;
     }
     startBtn.style.display = 'none'; joinBtn.style.display = 'inline-block'; nameInput.style.display = 'inline-block';
     if (info.running) { joinBtn.disabled = true; joinBtn.innerText = "Spiel läuft..."; joinBtn.style.backgroundColor = "#999"; nameInput.disabled = true; rollBtn.innerText = "Zuschauer"; } 
     else if (info.full) { joinBtn.disabled = true; joinBtn.innerText = "Lobby Voll"; joinBtn.style.backgroundColor = "#999"; nameInput.disabled = true; } 
     else { joinBtn.disabled = false; joinBtn.innerText = `MITSPIELEN (${info.count}/4)`; joinBtn.style.backgroundColor = "#2196F3"; nameInput.disabled = false; }
+    setTimeout(adjustLayout, 100);
 });
 
 socket.on('joinSuccess', (data) => {
@@ -72,9 +101,10 @@ socket.on('joinSuccess', (data) => {
     document.getElementById('my-status').innerText = `${data.players[data.id].name}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
     joinBtn.style.display = 'none'; nameInput.style.display = 'none'; startBtn.style.display = 'inline-block';
+    setTimeout(adjustLayout, 100);
 });
 socket.on('joinError', (msg) => { alert(msg); });
-socket.on('gameStarted', () => { startBtn.style.display = 'none'; });
+socket.on('gameStarted', () => { startBtn.style.display = 'none'; setTimeout(adjustLayout, 100); });
 
 // --- GAMEPLAY ---
 socket.on('updateBoard', (players) => { currentPlayers = players; renderPieces(players); });
@@ -124,40 +154,54 @@ function renderPieces(players) {
 function getHexColor(name) { if(name === 'red') return '#d32f2f'; if(name === 'blue') return '#1976d2'; if(name === 'green') return '#388e3c'; if(name === 'yellow') return '#fbc02d'; return '#333'; }
 function getDeColor(c) { if (c==='red') return 'ROT'; if (c==='blue') return 'BLAU'; if (c==='green') return 'GRÜN'; return 'GELB'; }
 
-// --- NEUE FUNKTION: DYNAMISCHE GRÖSSENANPASSUNG ---
-function resizeGame() {
-    const boardContainer = document.querySelector('.board-container');
+// --- DAS NEUE RESIZE SCRIPT ---
+function adjustLayout() {
+    const header = document.querySelector('h1');
+    const info = document.getElementById('header-info');
+    const setup = document.getElementById('setup-controls');
     const controls = document.querySelector('.controls');
+    const log = document.getElementById('log-container');
+    const boardContainer = document.querySelector('.board-container');
+
+    // 1. Höhe aller Elemente messen
+    const hHeader = header.offsetHeight + 7; // + margin
+    const hInfo = info.offsetHeight + 7;
+    const hSetup = setup.offsetHeight + 7;
+    const hControls = controls.offsetHeight + 35; // + margin/padding
+    const hLog = log.offsetHeight + 10;
+
+    // 2. Verfügbare Höhe berechnen
+    const totalHeight = window.innerHeight;
+    const availableHeight = totalHeight - hHeader - hInfo - hSetup - hControls - hLog;
+
+    // 3. Verfügbare Breite berechnen (Minus 24px Rand links/rechts)
+    const availableWidth = window.innerWidth - 24;
+
+    // 4. Board Größe ist das Minimum von beidem
+    let boardSize = Math.min(availableHeight, availableWidth);
     
-    // Basisbreite des Boards (11*40 + 8px padding links + 8px rechts + 8px border) = ca 470-480px
-    const baseWidth = 480; 
-    const screenWidth = window.innerWidth;
-    
-    // Berechne Skalierungsfaktor (Maximal 1 für Desktop, kleiner für Handy)
-    // Wir lassen 10px Rand links und rechts
-    let scale = Math.min(1, (screenWidth - 10) / baseWidth);
-    
-    // Skalierung anwenden
-    boardContainer.style.transform = `scale(${scale})`;
-    
-    // DAS IST DER TRICK:
-    // Durch scale() wird das Element optisch kleiner, nimmt aber im DOM noch den alten Platz ein.
-    // Wir müssen den unteren Rand negativ machen, um den Würfel hochzuziehen.
-    // Die Differenz ist: Originalhöhe - SkalierteHöhe
-    const heightDiff = 480 * (1 - scale);
-    
-    // Ziehe das nächste Element (Controls) nach oben
-    boardContainer.style.marginBottom = `-${heightDiff}px`;
-    
-    // Je kleiner das Handy, desto näher muss der Würfel ran
-    if (scale < 0.8) {
-        controls.style.marginTop = "0px";
+    // Safety Min Size
+    if (boardSize < 250) boardSize = 250;
+
+    // 5. Größe setzen
+    boardContainer.style.width = boardSize + 'px';
+    boardContainer.style.height = boardSize + 'px';
+
+    // 6. Querformat Spezial: Wenn sehr wenig Platz ist, verstecke Titel
+    if (window.innerHeight < 500) {
+        header.style.display = 'none';
+        // Erneut rechnen ohne Header
+        const avH = window.innerHeight - hInfo - hSetup - hControls - hLog;
+        boardSize = Math.min(avH, availableWidth);
+        boardContainer.style.width = boardSize + 'px';
+        boardContainer.style.height = boardSize + 'px';
     } else {
-        controls.style.marginTop = "10px";
+        header.style.display = 'block';
     }
 }
 
-// Event Listener für Resize (Drehen des Handys etc.)
-window.addEventListener('resize', resizeGame);
-// Einmalig beim Start ausführen
-resizeGame();
+// Ausführen bei Load, Resize und Orientierungswechsel
+window.addEventListener('resize', adjustLayout);
+window.addEventListener('orientationchange', () => { setTimeout(adjustLayout, 200); });
+// Init
+setTimeout(adjustLayout, 100);
