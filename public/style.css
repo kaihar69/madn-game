@@ -3,8 +3,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #e0e0e0;
     color: #333;
+    
+    /* NEU: Dezent gepunkteter Hintergrund (angedeutete Spielfiguren) */
+    background-color: #e0e0e0;
+    background-image: radial-gradient(circle, rgba(0,0,0,0.04) 12px, transparent 13px);
+    background-size: 50px 50px; /* Abstand des Musters */
 }
 
 h1 { margin-bottom: 5px; }
@@ -17,6 +21,7 @@ h1 { margin-bottom: 5px; }
     background: white;
     border: 2px solid transparent;
     transition: all 0.3s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 @keyframes pulse {
@@ -39,13 +44,15 @@ h1 { margin-bottom: 5px; }
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 .bot-btn:hover { background-color: #45a049; }
 
 /* Das Board */
 .board-container {
     margin: 10px;
-    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+    /* Stärkerer Schatten damit es sich vom neuen Hintergrund abhebt */
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3); 
 }
 
 #board {
@@ -53,7 +60,7 @@ h1 { margin-bottom: 5px; }
     grid-template-columns: repeat(11, 40px);
     grid-template-rows: repeat(11, 40px);
     gap: 2px;
-    background-color: #222; /* HIER: Der Hintergrund ist jetzt dunkel (für die Lücken) */
+    background-color: #222;
     padding: 10px;
     border: 5px solid #111;
     border-radius: 8px;
@@ -64,7 +71,6 @@ h1 { margin-bottom: 5px; }
     height: 40px;
     border-radius: 50%;
     position: relative;
-    /* Standardmäßig unsichtbar/dunkel, wenn leer */
     background-color: #333; 
     border: none;
 }
@@ -81,11 +87,18 @@ h1 { margin-bottom: 5px; }
 .start-field-green { background-color: #e8f5e9; border: 3px solid #388e3c; }
 .start-field-yellow { background-color: #fffde7; border: 3px solid #fbc02d; }
 
-/* Base Farben */
+/* Base Farben (Wartebereich) */
 .base-red { background-color: #ffcccc; }
 .base-blue { background-color: #ccccff; }
 .base-green { background-color: #ccffcc; }
 .base-yellow { background-color: #ffffcc; }
+
+/* NEU: Zielfelder Farben (Parkhaus) - Heller mit farbigem Rand */
+.target-red { background-color: #ffebee; border: 2px solid #d32f2f; }
+.target-blue { background-color: #e3f2fd; border: 2px solid #1976d2; }
+.target-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
+.target-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
+
 
 /* Die Figuren */
 .piece {
@@ -123,12 +136,14 @@ button#rollBtn {
     color: white;
     border: none;
     border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 button:disabled {
     background-color: #888 !important;
     cursor: not-allowed;
     color: #ccc;
+    box-shadow: none;
 }
 
 #diceResult { font-size: 1.5rem; font-weight: bold; }
@@ -139,12 +154,14 @@ button:disabled {
     color: #d32f2f;
     font-weight: bold;
     text-align: center;
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
 }
 
 #version-tag {
     position: fixed;
     bottom: 5px; right: 5px;
-    font-size: 0.8rem; color: #777;
+    font-size: 0.9rem; color: #888;
     font-family: monospace;
     pointer-events: none;
+    font-weight: bold;
 }
