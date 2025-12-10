@@ -3,7 +3,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* Verteilt den Platz: Oben Infos, Mitte Brett, Unten Würfel */
     justify-content: space-between; 
     color: #333;
     background-color: #e0e0e0;
@@ -15,14 +14,9 @@ body {
     touch-action: manipulation;
 }
 
-/* OBERER BEREICH */
 .top-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding-top: 5px;
-    flex-shrink: 0; /* Darf nicht kleiner werden */
+    display: flex; flex-direction: column; align-items: center;
+    width: 100%; padding-top: 5px; flex-shrink: 0;
 }
 
 h1 { margin: 0; font-size: 1.1rem; text-align: center; }
@@ -39,33 +33,23 @@ h1 { margin: 0; font-size: 1.1rem; text-align: center; }
     display: flex; justify-content: center; gap: 5px; margin-bottom: 2px;
 }
 #playerNameInput { padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9rem; width: 90px; text-align: center; }
-.bot-btn, .invite-btn {
+.bot-btn, .invite-btn, .leave-btn {
     background-color: #4CAF50; color: white; border: none; padding: 6px 10px;
     border-radius: 4px; cursor: pointer; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 .invite-btn { background-color: #2196F3; }
+.leave-btn { background-color: #f44336; }
 
-/* BOARD BEREICH (MITTIG) */
 .board-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    /* Das ist der Puffer, damit das Brett atmen kann */
-    flex-grow: 1; 
+    display: flex; justify-content: center; align-items: center;
+    width: 100%; flex-grow: 1; 
 }
 
 .board-container {
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    /* DIE MAGISCHE FORMEL: */
-    /* Breite = 96% vom Bildschirm */
-    /* ABER: Niemals höher als 60% der Bildschirmhöhe (60vh), damit Platz für UI bleibt */
     width: min(96vw, 60vh);
-    height: min(96vw, 60vh); /* Quadratisch */
-    
-    max-width: 550px; /* Desktop Begrenzung */
-    max-height: 550px;
-    
+    height: min(96vw, 60vh);
+    max-width: 550px; max-height: 550px;
     position: relative;
 }
 
@@ -84,7 +68,6 @@ h1 { margin: 0; font-size: 1.1rem; text-align: center; }
 
 .cell { width: 100%; height: 100%; border-radius: 50%; position: relative; background-color: #333; box-sizing: border-box; }
 
-/* FARBEN */
 .path { background-color: white; border: 1px solid #999; }
 .start-field-red { background-color: #ffebee; border: 3px solid #d32f2f; }
 .start-field-blue { background-color: #e3f2fd; border: 3px solid #1976d2; }
@@ -109,14 +92,10 @@ h1 { margin: 0; font-size: 1.1rem; text-align: center; }
 .piece::after { content: ''; width: 25%; height: 25%; background-color: rgba(0,0,0,0.6); border-radius: 50%; display: block; }
 .piece.red { background-color: #d32f2f; } .piece.blue { background-color: #1976d2; } .piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
 
-/* UNTERER BEREICH (Steuerung) */
 .controls {
     display: flex; flex-direction: column; align-items: center; gap: 5px;
-    width: 100%; z-index: 20; 
-    padding-bottom: 30px; /* Platz für Log */
-    flex-shrink: 0;
+    width: 100%; z-index: 20; padding-bottom: 30px; flex-shrink: 0;
 }
-
 button#rollBtn {
     padding: 10px 40px; font-size: 1.1rem; cursor: pointer; background-color: #333;
     color: white; border: none; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); min-width: 160px;
@@ -141,16 +120,3 @@ button:disabled { background-color: #999 !important; }
 .cube.show-1 { transform: translateZ(-22.5px) rotateY(0deg); } .cube.show-2 { transform: translateZ(-22.5px) rotateY(-90deg); } .cube.show-3 { transform: translateZ(-22.5px) rotateY(-180deg); } .cube.show-4 { transform: translateZ(-22.5px) rotateY(90deg); } .cube.show-5 { transform: translateZ(-22.5px) rotateX(-90deg); } .cube.show-6 { transform: translateZ(-22.5px) rotateX(90deg); }
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
-/* ... rest wie vorher ... */
-
-.bot-btn, .invite-btn, .leave-btn {
-    background-color: #4CAF50; color: white; border: none; padding: 8px 12px;
-    border-radius: 4px; cursor: pointer; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-.invite-btn { background-color: #2196F3; }
-
-/* NEU: Roter Verlassen Button */
-.leave-btn { background-color: #f44336; }
-
-/* ... rest wie vorher ... */
-
