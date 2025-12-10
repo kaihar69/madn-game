@@ -10,6 +10,10 @@ const TURN_ORDER = ['red', 'blue', 'green', 'yellow'];
 const START_OFFSETS = { 'red': 0, 'blue': 10, 'green': 20, 'yellow': 30 };
 const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
 
+// --- ZEITEN (Verlangsamt für bessere UX) ---
+const DELAY_AFTER_ROLL = 2500; // Zeit zum Lesen des Würfels
+const DELAY_BETWEEN_TURNS = 2000; // Zeit bis der nächste drankommt
+
 // --- SPIEL ZUSTAND ---
 let players = {};
 let turnIndex = 0;
@@ -59,13 +63,10 @@ io.on('connection', (socket) => {
         const player = players[socket.id];
         if (!player || player.color !== TURN_ORDER[turnIndex] || !player.lastRoll) return;
         
-        // Wir speichern das Wurfergebnis kurz zwischen, bevor tryMove es evtl. löscht oder verändert
         const rolledSix = (player.lastRoll === 6);
-
         if (tryMove(player, data.pieceIndex)) {
             io.emit('updateBoard', players);
             checkWin(player);
-            // Hier übergeben wir explizit, ob es eine 6 war
             finishTurn(player, rolledSix);
         }
     });
@@ -85,33 +86,62 @@ function handleRoll(player) {
     player.rollCount++; 
     const allInHouse = player.pieces.every(p => p === -1);
     const roll = player.lastRoll;
-    
+    let canRetry = false;
+    let movePossible = false;
+
+    // Logik: Darf er nochmal würfeln?
     if (allInHouse) {
         if (roll === 6) {
-            // Eine 6! Egal ob 1., 2. oder 3. Versuch -> Rauskommen!
-            io.emit('diceRolled', { value: roll, player: player.color, canRetry: false });
+            canRetry = false; // Muss rausziehen!
+            movePossible = true;
         } else {
-            // Keine 6
             if (player.rollCount < 3) {
-                // Darf nochmal
-                player.lastRoll = null; 
-                io.emit('diceRolled', { value: roll, player: player.color, canRetry: true });
-                io.emit('gameLog', `${player.color.toUpperCase()}: Versuch ${player.rollCount}/3 missglückt...`);
-                if(player.isBot) setTimeout(() => playBotRound(player), 1500);
+                canRetry = true;
+                player.lastRoll = null; // Reset für neuen Wurf
             } else {
-                // 3x versemmelt -> Nächster
-                io.emit('diceRolled', { value: roll, player: player.color, canRetry: false });
-                io.emit('gameLog', `${player.color.toUpperCase()} passt (3x fail).`);
-                setTimeout(() => nextTurn(), 2000);
+                canRetry = false; // Ende Gelände
+                movePossible = false;
             }
         }
     } else {
+        // Figuren draußen
         if (canMoveAny(player)) {
-            io.emit('diceRolled', { value: roll, player: player.color, canRetry: false });
+            canRetry = false; // Muss ziehen
+            movePossible = true;
         } else {
-            io.emit('diceRolled', { value: roll, player: player.color, canRetry: false });
-            io.emit('gameLog', `${player.color.toUpperCase()} kann nicht ziehen!`);
-            setTimeout(() => nextTurn(), 2000);
+            canRetry = false; // Sackgasse
+            movePossible = false;
+        }
+    }
+
+    // Info an alle senden
+    io.emit('diceRolled', { value: roll, player: player.color, canRetry: canRetry });
+
+    if (canRetry) {
+        io.emit('gameLog', `${player.color.toUpperCase()}: Versuch ${player.rollCount}/3 missglückt...`);
+    } else if (!movePossible && !canRetry && allInHouse) {
+        io.emit('gameLog', `${player.color.toUpperCase()} passt (3x fehlgeschlagen).`);
+    } else if (!movePossible && !allInHouse) {
+        io.emit('gameLog', `${player.color.toUpperCase()} kann nicht ziehen.`);
+    }
+
+    // BOT ENTSCHEIDUNG (Was passiert als nächstes?)
+    if (player.isBot) {
+        if (canRetry) {
+            // Nochmal würfeln nach Verzögerung
+            setTimeout(() => playBotRoll(player), DELAY_AFTER_ROLL);
+        } else if (movePossible) {
+            // Ziehen nach Verzögerung
+            setTimeout(() => playBotMove(player), DELAY_AFTER_ROLL);
+        } else {
+            // Zug beenden nach Verzögerung
+            setTimeout(() => finishTurn(player, false), DELAY_AFTER_ROLL);
+        }
+    } else {
+        // MENSCH:
+        // Wenn Sackgasse (nicht movePossible und nicht canRetry), automatisch beenden
+        if (!canRetry && !movePossible) {
+            setTimeout(() => finishTurn(player, false), DELAY_AFTER_ROLL);
         }
     }
 }
@@ -150,23 +180,16 @@ function tryMove(player, pieceIndex) {
     return true;
 }
 
-// WICHTIG: Hier habe ich die Logik angepasst
 function finishTurn(player, wasSix) {
-    // Falls wasSix nicht übergeben wurde (Fallback), nutzen wir lastRoll
     if (wasSix === undefined) wasSix = (player.lastRoll === 6);
 
     if (wasSix) {
         io.emit('gameLog', `${player.color.toUpperCase()} darf nochmal (6)!`);
-        
-        player.lastRoll = null; // Wurf verbraucht, bereit für neuen
-        player.rollCount = 0;   // Zähler resetten, da neuer Zug beginnt
-
-        // DAS WAR DER FIX:
-        // Wir müssen dem Frontend sagen: "Hey, Spieler X ist immer noch dran!"
-        // Damit wird der Button wieder aktiviert.
+        player.lastRoll = null; 
+        player.rollCount = 0;   
         io.emit('turnUpdate', player.color);
 
-        if(player.isBot) setTimeout(() => playBotRound(player), 1500);
+        if(player.isBot) setTimeout(() => playBotRoll(player), DELAY_BETWEEN_TURNS);
     } else {
         player.lastRoll = null;
         nextTurn();
@@ -184,6 +207,57 @@ function nextTurn() {
     checkBotTurn();
 }
 
+// --- BOT INTELLIGENZ ---
+
+function checkBotTurn() {
+    const currentColor = TURN_ORDER[turnIndex];
+    const playerID = Object.keys(players).find(id => players[id].color === currentColor);
+    const player = players[playerID];
+
+    if (player && player.isBot) {
+        setTimeout(() => playBotRoll(player), DELAY_BETWEEN_TURNS); // Startverzögerung
+    }
+}
+
+// Bot Schritt 1: Würfeln
+function playBotRoll(bot) {
+    handleRoll(bot);
+}
+
+// Bot Schritt 2: Ziehen (wird nur aufgerufen, wenn handleRoll sagt "Move Possible")
+function playBotMove(bot) {
+    if (!bot.lastRoll) return; 
+
+    let moved = false;
+    
+    // Strategie: Rauskommen > Schlagen > Laufen
+    if (bot.lastRoll === 6) {
+            const houseIdx = bot.pieces.findIndex(p => p === -1);
+            if (houseIdx !== -1 && tryMove(bot, houseIdx)) moved = true;
+    }
+
+    if (!moved) {
+        // Versuchen wir zu schlagen? (Einfache Simulation)
+        // Hier nehmen wir erstmal den ersten gültigen Zug
+        for (let i = 0; i < 4; i++) {
+            if (tryMove(bot, i)) {
+                moved = true;
+                break;
+            }
+        }
+    }
+
+    if (moved) {
+        io.emit('updateBoard', players);
+        checkWin(bot);
+        // Prüfen ob es eine 6 war für den Folgezug
+        finishTurn(bot, bot.lastRoll === 6);
+    } else {
+        // Fallback (sollte durch handleRoll Logik eigentlich nicht passieren, aber sicher ist sicher)
+        finishTurn(bot, false); 
+    }
+}
+
 function canMoveAny(player) {
     for (let i = 0; i < 4; i++) {
         if (isMoveValid(player, i, player.lastRoll)) return true;
@@ -197,7 +271,6 @@ function isMoveValid(player, pieceIndex, roll) {
     const entryPoint = ENTRY_POINTS[player.color];
 
     if (currentPos === -1) {
-        // Rauskommen braucht 6
         return (roll === 6 && !isOccupiedBySelf(player, startPos));
     } else if (currentPos >= 100) {
         const currentTargetIndex = currentPos - 100;
@@ -216,51 +289,6 @@ function isMoveValid(player, pieceIndex, roll) {
         }
         return true; 
     }
-}
-
-// --- BOT LOGIK ---
-function checkBotTurn() {
-    const currentColor = TURN_ORDER[turnIndex];
-    const playerID = Object.keys(players).find(id => players[id].color === currentColor);
-    const player = players[playerID];
-
-    if (player && player.isBot) {
-        setTimeout(() => playBotRound(player), 1500);
-    }
-}
-
-function playBotRound(bot) {
-    handleRoll(bot);
-    
-    setTimeout(() => {
-        if (!bot.lastRoll) return; 
-
-        let moved = false;
-        
-        if (bot.lastRoll === 6) {
-             const houseIdx = bot.pieces.findIndex(p => p === -1);
-             if (houseIdx !== -1 && tryMove(bot, houseIdx)) moved = true;
-        }
-
-        if (!moved) {
-            for (let i = 0; i < 4; i++) {
-                if (tryMove(bot, i)) {
-                    moved = true;
-                    break;
-                }
-            }
-        }
-
-        if (moved) {
-            io.emit('updateBoard', players);
-            checkWin(bot);
-            // Move Funktion ruft finishTurn auf
-        } else {
-            // Wenn nichts geht -> Ende
-            finishTurn(bot, false); 
-        }
-
-    }, 1500);
 }
 
 // --- HELPER ---
