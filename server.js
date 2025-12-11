@@ -17,19 +17,20 @@ const DATA_FILE = 'game_state.json';
 // GLOBALE LOBBY
 let games = {}; 
 
+// START: Daten laden
 loadGameData();
 
 io.on('connection', (socket) => {
     emitStatus(socket);
     
-    // --- REJOIN (PRIORITÄT 1: WIEDEREINTRITT) ---
+    // --- REJOIN (PRIORITÄT 1) ---
     socket.on('requestRejoin', (token) => {
         try {
             const roomId = 'global';
             if (!games[roomId]) { socket.emit('rejoinError'); return; }
             const game = games[roomId];
 
-            // SUCHE NACH DEM TOKEN (Egal ob bei Bot oder noch aktivem "Zombie"-Spieler)
+            // Suche Token (egal ob bei Bot oder inaktivem Spieler)
             let foundPlayerId = null;
             Object.values(game.players).forEach(p => {
                 if (p.token === token) foundPlayerId = p.id;
@@ -37,25 +38,23 @@ io.on('connection', (socket) => {
 
             if (foundPlayerId) {
                 const oldPlayer = game.players[foundPlayerId];
-                console.log(`Rejoin für ${oldPlayer.name} (Token match). Ersetze ${foundPlayerId} durch ${socket.id}`);
+                console.log(`Rejoin: ${oldPlayer.name} übernimmt wieder.`);
 
-                // 1. Alten Eintrag löschen
+                // Alten Eintrag löschen
                 delete game.players[foundPlayerId];
 
-                // 2. Neuen Eintrag mit aktueller Socket-ID erstellen
-                // Wichtig: Bot-Flag entfernen und Name bereinigen
+                // Neuen Eintrag erstellen
                 game.players[socket.id] = {
                     ...oldPlayer,
                     id: socket.id,
                     isBot: false,
                     name: oldPlayer.name.replace(' (Bot)', ''),
-                    token: token // Token behalten!
+                    token: token // Token behalten
                 };
 
                 socket.join(roomId);
                 socket.data.roomId = roomId;
 
-                // 3. Erfolgsmeldung & Update
                 socket.emit('joinSuccess', { id: socket.id, players: game.players, token: token, rejoining: true });
                 io.to(roomId).emit('updateBoard', game.players);
                 io.to(roomId).emit('gameLog', `${game.players[socket.id].name} ist zurück!`);
@@ -67,7 +66,7 @@ io.on('connection', (socket) => {
         } catch (e) { console.error("Error Rejoin:", e); }
     });
 
-    // --- JOIN (NEUE SPIELER) ---
+    // --- JOIN (NEU) ---
     socket.on('requestJoin', (playerName) => {
         try {
             if (getGameRunning(socket)) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
@@ -84,6 +83,7 @@ io.on('connection', (socket) => {
             let safeName = (playerName || "").substring(0, 12).trim();
             if (safeName.length === 0) safeName = `Spieler ${Object.keys(game.players).length + 1}`;
 
+            // Token generieren
             const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
             const color = getColor(Object.keys(game.players).length);
             
@@ -178,34 +178,27 @@ io.on('connection', (socket) => {
                 if (game.players[socket.id]) {
                     const player = game.players[socket.id];
 
-                    // Wenn Spiel läuft: Bot übernimmt (aber wir löschen nicht sofort, falls es nur ein F5 ist)
-                    // Wir geben dem Spieler 2 Sekunden Zeit für einen Reconnect, bevor wir Log-Nachrichten senden
-                    // (Das ist optional, aber hier machen wir die sichere Variante: Sofort Bot, aber Token behalten)
-
                     if (!game.running) {
-                        // Lobby: Einfach entfernen
                         delete game.players[socket.id];
                         io.to(roomId).emit('updateBoard', game.players);
                         broadcastStatus(roomId);
                         persistGame();
                     } else {
-                        // Spiel läuft: Bot übernimmt
-                        // WICHTIG: Wir prüfen erst, ob der Spieler nicht vielleicht schon durch einen Rejoin ersetzt wurde
-                        // (Race Condition Schutz)
+                        // Spiel läuft: Bot übernimmt, Token wird gesichert
                         if (game.players[socket.id] && !game.players[socket.id].rejoined) {
                              io.to(roomId).emit('gameLog', `${player.name} ist kurz weg...`);
                             
                             const botId = `bot-rep-${Date.now()}`;
                             game.players[botId] = {
                                 ...player, id: botId, name: `${player.name} (Bot)`, isBot: true, lastRoll: null,
-                                token: player.token // TOKEN SICHERN!
+                                token: player.token // TOKEN SICHERN
                             };
                             delete game.players[socket.id];
                             
                             io.to(roomId).emit('updateBoard', game.players);
                             
                             if (game.players[botId].color === TURN_ORDER[game.turnIndex]) {
-                                setTimeout(() => playBotRoll(roomId, game.players[botId]), 2000); // Etwas mehr Zeit geben beim DC
+                                setTimeout(() => playBotRoll(roomId, game.players[botId]), 2000);
                             }
                             persistGame();
                         }
