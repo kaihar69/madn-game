@@ -14,81 +14,28 @@ const DELAY_AFTER_ROLL = 2000;
 const DELAY_BETWEEN_TURNS = 1500; 
 const DATA_FILE = 'game_state.json';
 
-// GLOBALE LOBBY (Speichert jetzt MEHRERE Räume)
-// Format: { 'AX92': { players: {}, ... }, 'B7K1': { ... } }
+// GLOBALE LOBBY
 let games = {}; 
 
 loadGameData();
 
-// Cleanup Loop: Löscht leere Räume alle 30 Min
-setInterval(() => {
-    Object.keys(games).forEach(roomId => {
-        // Lösche Raum, wenn keine Spieler mehr drin sind und er älter als X ist (hier einfach leer checken)
-        if (Object.keys(games[roomId].players).length === 0) {
-            console.log(`Lösche leeren Raum: ${roomId}`);
-            delete games[roomId];
-            persistGame();
-        }
-    });
-}, 30 * 60 * 1000);
-
 io.on('connection', (socket) => {
-    // Statusticker ist jetzt raumspezifisch, daher hier nicht mehr global senden
-
-    // --- NEUES SPIEL ERSTELLEN ---
-    socket.on('createGame', (playerName) => {
-        try {
-            const roomId = generateRoomId();
-            games[roomId] = createNewGame();
-            joinRoom(socket, roomId, playerName);
-        } catch (e) { console.error("Error Create:", e); }
-    });
-
-    // --- BEITRETEN ---
-    socket.on('requestJoin', (data) => {
-        try {
-            const roomId = (data.roomId || "").toUpperCase();
-            const playerName = data.name;
-
-            if (!games[roomId]) {
-                socket.emit('joinError', 'Raum nicht gefunden!');
-                return;
-            }
-            if (Object.keys(games[roomId].players).length >= 4) {
-                socket.emit('joinError', 'Raum ist voll!');
-                return;
-            }
-            if (games[roomId].running) {
-                socket.emit('joinError', 'Spiel läuft bereits!');
-                return;
-            }
-
-            joinRoom(socket, roomId, playerName);
-
-        } catch (e) { console.error("Error Join:", e); }
-    });
-
-    // --- REJOIN (Sucht in ALLEN Räumen) ---
+    emitStatus(socket);
+    
+    // --- REJOIN ---
     socket.on('requestRejoin', (token) => {
         try {
-            let foundRoomId = null;
+            const roomId = 'global';
+            if (!games[roomId]) { socket.emit('rejoinError'); return; }
+            const game = games[roomId];
+
             let foundPlayerId = null;
+            Object.values(game.players).forEach(p => {
+                if (p.token === token) foundPlayerId = p.id;
+            });
 
-            // Suche in allen Spielen nach dem Token
-            for (const [rId, game] of Object.entries(games)) {
-                Object.values(game.players).forEach(p => {
-                    if (p.token === token) {
-                        foundRoomId = rId;
-                        foundPlayerId = p.id;
-                    }
-                });
-                if (foundRoomId) break;
-            }
-
-            if (foundRoomId && foundPlayerId) {
-                const game = games[foundRoomId];
+            if (foundPlayerId) {
                 const oldPlayer = game.players[foundPlayerId];
-                
                 delete game.players[foundPlayerId];
 
                 game.players[socket.id] = {
@@ -99,13 +46,13 @@ io.on('connection', (socket) => {
                     token: token 
                 };
 
-                socket.join(foundRoomId);
-                socket.data.roomId = foundRoomId;
+                socket.join(roomId);
+                socket.data.roomId = roomId;
 
-                socket.emit('joinSuccess', { id: socket.id, players: game.players, token: token, roomId: foundRoomId, rejoining: true });
-                io.to(foundRoomId).emit('updateBoard', game.players);
-                io.to(foundRoomId).emit('gameLog', `${game.players[socket.id].name} ist zurück!`);
-                broadcastRoomStatus(foundRoomId);
+                socket.emit('joinSuccess', { id: socket.id, players: game.players, token: token, rejoining: true });
+                io.to(roomId).emit('updateBoard', game.players);
+                io.to(roomId).emit('gameLog', `${game.players[socket.id].name} ist zurück!`);
+                
                 persistGame();
             } else {
                 socket.emit('rejoinError'); 
@@ -113,14 +60,46 @@ io.on('connection', (socket) => {
         } catch (e) { console.error("Error Rejoin:", e); }
     });
 
+    // --- JOIN ---
+    socket.on('requestJoin', (playerName) => {
+        try {
+            if (getGameRunning(socket)) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
+            
+            const roomId = 'global'; 
+            socket.join(roomId);
+            
+            if (!games[roomId]) games[roomId] = createNewGame();
+            const game = games[roomId];
+
+            if (Object.keys(game.players).length >= 4) { socket.emit('joinError', 'Lobby ist voll!'); return; }
+            if (game.players[socket.id]) return; 
+
+            let safeName = (playerName || "").substring(0, 12).trim();
+            if (safeName.length === 0) safeName = `Spieler ${Object.keys(game.players).length + 1}`;
+
+            const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+            const color = getColor(Object.keys(game.players).length);
+            
+            game.players[socket.id] = { 
+                id: socket.id, token: token, color: color, name: safeName,
+                pieces: [-1, -1, -1, -1], isBot: false, lastRoll: null, rollCount: 0 
+            };
+            socket.data.roomId = roomId;
+
+            socket.emit('joinSuccess', { id: socket.id, players: game.players, token: token });
+            io.to(roomId).emit('updateBoard', game.players);
+            io.to(roomId).emit('turnUpdate', TURN_ORDER[game.turnIndex]);
+            broadcastStatus(roomId); 
+            persistGame();
+        } catch (e) { console.error("Error Join:", e); }
+    });
+
     // --- START ---
     socket.on('startGame', () => {
         try {
             const roomId = socket.data.roomId;
-            if(!roomId || !games[roomId]) return;
-
             const game = games[roomId];
-            if (game.running) return;
+            if (!game || game.running) return;
             
             let botIndex = 1;
             while (Object.keys(game.players).length < 4) {
@@ -136,27 +115,18 @@ io.on('connection', (socket) => {
             game.running = true;
             io.to(roomId).emit('updateBoard', game.players);
             io.to(roomId).emit('gameStarted');
-            broadcastRoomStatus(roomId);
+            broadcastStatus(roomId);
             persistGame();
-            
-            if (typeof checkBotTurn === 'function') {
-                checkBotTurn(roomId);
-            }
+            checkBotTurn(roomId);
         } catch (e) { console.error("Error Start:", e); }
-    });
-
-    // --- VERLASSEN ---
-    socket.on('leaveGame', () => {
-        handleDisconnect(socket);
     });
 
     // --- WÜRFELN ---
     socket.on('rollDice', () => {
         try {
             const roomId = socket.data.roomId;
-            if(!roomId || !games[roomId]) return;
             const game = games[roomId];
-            
+            if (!game) return;
             const player = game.players[socket.id];
             if (!player || !game.running || player.color !== TURN_ORDER[game.turnIndex] || player.lastRoll) return;
             
@@ -168,9 +138,8 @@ io.on('connection', (socket) => {
     socket.on('movePiece', (data) => {
         try {
             const roomId = socket.data.roomId;
-            if(!roomId || !games[roomId]) return;
             const game = games[roomId];
-            
+            if (!game) return;
             const player = game.players[socket.id];
             if (!player || !game.running || player.color !== TURN_ORDER[game.turnIndex] || !player.lastRoll) return;
             
@@ -196,117 +165,86 @@ io.on('connection', (socket) => {
 
     // --- DISCONNECT ---
     socket.on('disconnect', () => {
-        handleDisconnect(socket);
-    });
-});
+        try {
+            const roomId = socket.data.roomId;
+            if (roomId && games[roomId]) {
+                const game = games[roomId];
+                if (game.players[socket.id]) {
+                    const player = game.players[socket.id];
 
-// --- HELPER FUNKTIONEN ---
-
-function generateRoomId() {
-    // Erzeugt 4-stelligen Code (Buchstaben + Zahlen, ohne Verwechslungsgefahr wie I/1, O/0)
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    // Check ob ID schon existiert
-    if (games[result]) return generateRoomId();
-    return result;
-}
-
-function joinRoom(socket, roomId, playerName) {
-    const game = games[roomId];
-    socket.join(roomId);
-    socket.data.roomId = roomId;
-
-    let safeName = (playerName || "").substring(0, 12).trim();
-    if (safeName.length === 0) safeName = `Spieler ${Object.keys(game.players).length + 1}`;
-
-    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    const color = getColor(Object.keys(game.players).length);
-
-    game.players[socket.id] = { 
-        id: socket.id, token: token, color: color, name: safeName,
-        pieces: [-1, -1, -1, -1], isBot: false, lastRoll: null, rollCount: 0 
-    };
-
-    socket.emit('joinSuccess', { id: socket.id, players: game.players, token: token, roomId: roomId });
-    io.to(roomId).emit('updateBoard', game.players);
-    io.to(roomId).emit('turnUpdate', TURN_ORDER[game.turnIndex]);
-    broadcastRoomStatus(roomId); 
-    persistGame();
-}
-
-function handleDisconnect(socket) {
-    try {
-        const roomId = socket.data.roomId;
-        if (roomId && games[roomId]) {
-            const game = games[roomId];
-            if (game.players[socket.id]) {
-                const player = game.players[socket.id];
-
-                if (!game.running) {
-                    delete game.players[socket.id];
-                    io.to(roomId).emit('updateBoard', game.players);
-                    broadcastRoomStatus(roomId);
-                    persistGame();
-                } else {
-                    if (game.players[socket.id] && !game.players[socket.id].rejoined) {
-                         io.to(roomId).emit('gameLog', `${player.name} ist kurz weg...`);
-                        
-                        const botId = `bot-rep-${Date.now()}`;
-                        game.players[botId] = {
-                            ...player, id: botId, name: `${player.name} (Bot)`, isBot: true, lastRoll: null,
-                            token: player.token 
-                        };
+                    if (!game.running) {
                         delete game.players[socket.id];
-                        
                         io.to(roomId).emit('updateBoard', game.players);
-                        
-                        if (game.players[botId].color === TURN_ORDER[game.turnIndex]) {
-                            setTimeout(() => playBotRoll(roomId, game.players[botId]), 2000);
-                        }
+                        broadcastStatus(roomId);
                         persistGame();
+                    } else {
+                        if (game.players[socket.id] && !game.players[socket.id].rejoined) {
+                             io.to(roomId).emit('gameLog', `${player.name} ist kurz weg...`);
+                            
+                            const botId = `bot-rep-${Date.now()}`;
+                            game.players[botId] = {
+                                ...player, id: botId, name: `${player.name} (Bot)`, isBot: true, lastRoll: null,
+                                token: player.token 
+                            };
+                            delete game.players[socket.id];
+                            
+                            io.to(roomId).emit('updateBoard', game.players);
+                            
+                            if (game.players[botId].color === TURN_ORDER[game.turnIndex]) {
+                                setTimeout(() => playBotRoll(roomId, game.players[botId]), 2000);
+                            }
+                            persistGame();
+                        }
                     }
                 }
             }
-        }
-    } catch (e) { console.error("Error DC:", e); }
-}
+        } catch (e) { console.error("Error DC:", e); }
+    });
+});
 
+// --- HELPER & STATE ---
 function createNewGame() { return { players: {}, turnIndex: 0, running: false }; }
-
+function getGameRunning(socket) { return games['global'] && games['global'].running; }
 function resetGame(roomId) {
     if(games[roomId]) {
         games[roomId] = createNewGame();
-        broadcastRoomStatus(roomId);
+        broadcastStatus(roomId);
         io.to(roomId).emit('updateBoard', {});
         io.to(roomId).emit('gameLog', "Spiel wurde zurückgesetzt.");
         io.to(roomId).emit('turnUpdate', 'red'); 
         persistGame();
     }
 }
-
-function broadcastRoomStatus(roomId) {
+function broadcastStatus(roomId) {
     if (!games[roomId]) return;
     const playerCount = Object.keys(games[roomId].players).length;
     const info = { running: games[roomId].running, count: playerCount, full: playerCount >= 4 };
-    io.to(roomId).emit('roomStatus', info); 
+    io.emit('serverStatus', info); 
 }
-
+function emitStatus(socket) {
+    const game = games['global'];
+    if (game) {
+        const playerCount = Object.keys(game.players).length;
+        socket.emit('serverStatus', { running: game.running, count: playerCount, full: playerCount >= 4 });
+        socket.emit('updateBoard', game.players); 
+    } else {
+        socket.emit('serverStatus', { running: false, count: 0, full: false });
+    }
+}
 function persistGame() {
     try { fs.writeFileSync(DATA_FILE, JSON.stringify(games, null, 2)); } catch (e) { console.error("Fehler Save:", e); }
 }
-
 function loadGameData() {
     try { 
         if (fs.existsSync(DATA_FILE)) { 
             games = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); 
-            console.log("Games geladen."); 
-            // Restart Bots in allen aktiven Räumen
-            Object.keys(games).forEach(roomId => {
-                if(games[roomId].running) {
-                    setTimeout(() => checkBotTurn(roomId), 1000);
-                }
-            });
+            console.log("Game geladen."); 
+            
+            // Bot Loop neu starten
+            const roomId = 'global';
+            if(games[roomId] && games[roomId].running) {
+                setTimeout(() => checkBotTurn(roomId), 1000);
+            }
         } 
     } catch (e) { games = {}; }
 }
@@ -316,6 +254,7 @@ function loadGameData() {
 function handleRoll(roomId, player) {
     const game = games[roomId];
     
+    // SOUND
     io.to(roomId).emit('playSound', 'roll');
 
     player.lastRoll = Math.floor(Math.random() * 6) + 1;
@@ -333,7 +272,8 @@ function handleRoll(roomId, player) {
             if (canMoveAny(game, player)) { canRetry = false; movePossible = true; } 
             else { 
                 if (player.rollCount < 3) { 
-                    canRetry = true; player.lastRoll = null; 
+                    canRetry = true; 
+                    player.lastRoll = null; 
                 } else { 
                     canRetry = false; movePossible = false; 
                 } 
@@ -462,39 +402,128 @@ function isMoveValid(game, player, pieceIndex, roll) {
     return true; 
 }
 
+// --- KILLER BOT LOGIK ---
 function playBotMove(roomId, bot) {
     const game = games[roomId];
+    
     if(!game || !bot.lastRoll) {
-        console.log("Bot Logic Safety Triggered. Ending Turn.");
         finishTurn(roomId, bot, false);
         return;
     }
+    
+    // 1. ZWANGSZÜGE (Regeln sind Regeln)
     const forcedIdx = getForcedMoveIndex(game, bot);
-    let moved = false;
-    if (forcedIdx !== -1) { if (tryMove(roomId, bot, forcedIdx)) moved = true; } 
-    else {
-        if (bot.lastRoll === 6) { const houseIdx = bot.pieces.findIndex(p => p === -1); if (houseIdx !== -1 && tryMove(roomId, bot, houseIdx)) moved = true; }
-        if (!moved) { for (let i = 0; i < 4; i++) { if (tryMove(roomId, bot, i)) { moved = true; break; } } }
+    if (forcedIdx !== -1) { 
+        if (tryMove(roomId, bot, forcedIdx)) {
+            finishBotTurn(roomId, game, bot);
+            return;
+        }
     }
-    if (moved) { io.to(roomId).emit('updateBoard', game.players); checkWin(roomId, bot); finishTurn(roomId, bot, bot.lastRoll === 6); } 
-    else { finishTurn(roomId, bot, false); }
+
+    // 2. BEWERTUNG ALLER MÖGLICHEN ZÜGE
+    let possibleMoves = [];
+
+    for (let i = 0; i < 4; i++) {
+        if (isMoveValid(game, bot, i, bot.lastRoll)) {
+            // Wir simulieren den Zug, um zu sehen, was passiert
+            const score = evaluateMove(game, bot, i, bot.lastRoll);
+            possibleMoves.push({ index: i, score: score });
+        }
+    }
+
+    // 3. BESTEN ZUG AUSWÄHLEN
+    if (possibleMoves.length > 0) {
+        // Sortieren: Höchster Score zuerst
+        possibleMoves.sort((a, b) => b.score - a.score);
+        
+        // Besten Zug ausführen
+        const bestMove = possibleMoves[0];
+        if (tryMove(roomId, bot, bestMove.index)) {
+            finishBotTurn(roomId, game, bot);
+        } else {
+            finishTurn(roomId, bot, false); // Fallback
+        }
+    } else {
+        // Kein Zug möglich
+        finishTurn(roomId, bot, false);
+    }
+}
+
+// Hilfsfunktion: Wie gut ist dieser Zug?
+function evaluateMove(game, player, pieceIndex, roll) {
+    let score = 0;
+    
+    // Aktuelle Position
+    const currentPos = player.pieces[pieceIndex];
+    let newPos;
+
+    // Zielposition berechnen (Simulation)
+    if (currentPos === -1) newPos = START_OFFSETS[player.color];
+    else if (currentPos >= 100) newPos = 100 + (currentPos - 100 + roll);
+    else {
+        const entryPoint = ENTRY_POINTS[player.color];
+        const distanceToEntry = (entryPoint - currentPos + 40) % 40;
+        if (distanceToEntry < roll) newPos = 100 + (roll - distanceToEntry - 1);
+        else newPos = (currentPos + roll) % 40;
+    }
+
+    // KRITERIUM 1: GEGNER SCHLAGEN (KILLER INSTINKT)
+    if (newPos < 100) {
+        Object.values(game.players).forEach(other => {
+            if (other.id !== player.id) {
+                other.pieces.forEach(pos => {
+                    if (pos === newPos) {
+                        score += 100; // JACKPOT!
+                    }
+                });
+            }
+        });
+    }
+
+    // KRITERIUM 2: INS ZIEL GEHEN
+    if (newPos >= 100) {
+        score += 50;
+    }
+
+    // KRITERIUM 3: RAUSKOMMEN (Startfeld verlassen oder Haus verlassen)
+    if (currentPos === -1) {
+        score += 30;
+    }
+
+    // KRITERIUM 4: STANDARD BEWEGUNG (Fortschritt)
+    score += 10;
+
+    return score;
+}
+
+function finishBotTurn(roomId, game, bot) {
+    io.to(roomId).emit('updateBoard', game.players); 
+    checkWin(roomId, bot); 
+    finishTurn(roomId, bot, bot.lastRoll === 6); 
 }
 
 function playBotRoll(roomId, bot) { handleRoll(roomId, bot); }
 
 function finishTurn(roomId, player, wasSix) {
     const game = games[roomId]; if(!game) return;
+    
     if (wasSix === undefined) wasSix = (player.lastRoll === 6);
+    
     if (wasSix) {
         io.to(roomId).emit('gameLog', `Nochmal (6)!`);
-        player.lastRoll = null; player.rollCount = 0;   
+        player.lastRoll = null; 
+        player.rollCount = 0;   
         io.to(roomId).emit('turnUpdate', player.color);
         if(player.isBot) setTimeout(() => playBotRoll(roomId, player), DELAY_BETWEEN_TURNS);
-    } else { player.lastRoll = null; nextTurn(roomId); }
+    } else { 
+        player.lastRoll = null; 
+        nextTurn(roomId); 
+    }
 }
 
 function nextTurn(roomId) {
     const game = games[roomId]; if(!game) return;
+    
     let attempts = 0; let foundNext = false;
     while(attempts < 4 && !foundNext) {
         game.turnIndex = (game.turnIndex + 1) % 4;
@@ -503,18 +532,26 @@ function nextTurn(roomId) {
         if(hasPlayer) foundNext = true;
         attempts++;
     }
+    
     const nextColor = TURN_ORDER[game.turnIndex];
     const nextPlayerId = Object.keys(game.players).find(id => game.players[id].color === nextColor);
-    if(nextPlayerId && game.players[nextPlayerId]) { game.players[nextPlayerId].rollCount = 0; }
+    
+    if(nextPlayerId && game.players[nextPlayerId]) { 
+        game.players[nextPlayerId].rollCount = 0; 
+    }
+    
     io.to(roomId).emit('turnUpdate', nextColor);
     checkBotTurn(roomId);
 }
 
 function checkBotTurn(roomId) {
     const game = games[roomId]; if(!game) return;
+    
     const currentColor = TURN_ORDER[game.turnIndex];
     const playerID = Object.keys(game.players).find(id => game.players[id].color === currentColor);
+    
     if(!playerID) return;
+    
     const player = game.players[playerID];
     if (player && player.isBot) {
         setTimeout(() => playBotRoll(roomId, player), DELAY_BETWEEN_TURNS);
@@ -532,7 +569,14 @@ function checkWin(roomId, player) {
 function getColor(index) { return ['red', 'blue', 'green', 'yellow'][index]; }
 function isOccupiedBySelf(player, pos) { return player.pieces.includes(pos); }
 function isPathBlockedInTarget(player, startIdx, endIdx) { for (let i = startIdx + 1; i < endIdx; i++) { if (player.pieces.includes(100 + i)) return true; } return false; }
-function canMoveAny(game, player) { const forced = getForcedMoveIndex(game, player); if (forced !== -1) return true; for (let i = 0; i < 4; i++) { if (isMoveValid(game, player, i, player.lastRoll)) return true; } return false; }
+function canMoveAny(game, player) { 
+    const forced = getForcedMoveIndex(game, player); 
+    if (forced !== -1) return true; 
+    for (let i = 0; i < 4; i++) { 
+        if (isMoveValid(game, player, i, player.lastRoll)) return true; 
+    } 
+    return false; 
+}
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Server auf Port ${PORT}`));
