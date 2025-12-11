@@ -130,7 +130,7 @@ io.on('connection', (socket) => {
             const player = game.players[socket.id];
             if (!player || !game.running || player.color !== TURN_ORDER[game.turnIndex] || player.lastRoll) return;
             
-            // HIER HABEN WIR DEN SOUND ENTFERNT...
+            // HIER kein Sound-Emit mehr, das macht jetzt handleRoll für alle!
             handleRoll(roomId, player);
         } catch (e) { console.error("Error Roll:", e); }
     });
@@ -236,14 +236,19 @@ function persistGame() {
     try { fs.writeFileSync(DATA_FILE, JSON.stringify(games, null, 2)); } catch (e) { console.error("Fehler Save:", e); }
 }
 function loadGameData() {
-    try { if (fs.existsSync(DATA_FILE)) { games = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); console.log("Game geladen."); } } catch (e) { games = {}; }
+    try { 
+        if (fs.existsSync(DATA_FILE)) { 
+            games = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); 
+            console.log("Game geladen."); 
+        } 
+    } catch (e) { games = {}; }
 }
 
 // --- SPIEL LOGIK ---
 function handleRoll(roomId, player) {
     const game = games[roomId];
     
-    // ... UND HIER EINGEFÜGT! Jetzt hören wir JEDEN Wurf.
+    // SOUND EINFÜGEN: Jeder Würfelwurf macht Sound
     io.to(roomId).emit('playSound', 'roll');
 
     player.lastRoll = Math.floor(Math.random() * 6) + 1;
@@ -363,9 +368,17 @@ function isMoveValid(game, player, pieceIndex, roll) {
     if (isProtected) return false; 
     return true; 
 }
+
 function playBotMove(roomId, bot) {
     const game = games[roomId];
-    if(!game || !bot.lastRoll) return; 
+    
+    // FIX: Wenn irgendwas komisch ist (kein Spiel, kein Wurf), NICHT returnen, sondern Zug beenden!
+    if(!game || !bot.lastRoll) {
+        console.log("Bot Logic Error oder Timing Problem: Zug wird übersprungen.");
+        finishTurn(roomId, bot, false);
+        return;
+    }
+    
     const forcedIdx = getForcedMoveIndex(game, bot);
     let moved = false;
     if (forcedIdx !== -1) { if (tryMove(roomId, bot, forcedIdx)) moved = true; } 
@@ -376,7 +389,9 @@ function playBotMove(roomId, bot) {
     if (moved) { io.to(roomId).emit('updateBoard', game.players); checkWin(roomId, bot); finishTurn(roomId, bot, bot.lastRoll === 6); } 
     else { finishTurn(roomId, bot, false); }
 }
+
 function playBotRoll(roomId, bot) { handleRoll(roomId, bot); }
+
 function finishTurn(roomId, player, wasSix) {
     const game = games[roomId]; if(!game) return;
     if (wasSix === undefined) wasSix = (player.lastRoll === 6);
@@ -402,6 +417,14 @@ function nextTurn(roomId) {
     if(nextPlayerId && game.players[nextPlayerId]) { game.players[nextPlayerId].rollCount = 0; }
     io.to(roomId).emit('turnUpdate', nextColor);
     checkBotTurn(roomId);
+}
+function checkBotTurn(roomId) {
+    const game = games[roomId]; if(!game) return;
+    const currentColor = TURN_ORDER[game.turnIndex];
+    const playerID = Object.keys(game.players).find(id => game.players[id].color === currentColor);
+    if(!playerID) return;
+    const player = game.players[playerID];
+    if (player && player.isBot) setTimeout(() => playBotRoll(roomId, player), DELAY_BETWEEN_TURNS);
 }
 function checkWin(roomId, player) { 
     if (player.pieces.every(p => p >= 100)) { 
