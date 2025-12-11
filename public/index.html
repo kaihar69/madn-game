@@ -51,22 +51,25 @@
         </div>
 
         <div class="controls">
-            <div class="scene">
-                <div class="cube" id="diceCube">
-                    <div class="cube__face cube__face--1">1</div>
-                    <div class="cube__face cube__face--2">2</div>
-                    <div class="cube__face cube__face--3">3</div>
-                    <div class="cube__face cube__face--4">4</div>
-                    <div class="cube__face cube__face--5">5</div>
-                    <div class="cube__face cube__face--6">6</div>
+            <div id="log-container"></div>
+
+            <div class="control-row">
+                <div class="scene">
+                    <div class="cube" id="diceCube">
+                        <div class="cube__face cube__face--1">1</div>
+                        <div class="cube__face cube__face--2">2</div>
+                        <div class="cube__face cube__face--3">3</div>
+                        <div class="cube__face cube__face--4">4</div>
+                        <div class="cube__face cube__face--5">5</div>
+                        <div class="cube__face cube__face--6">6</div>
+                    </div>
                 </div>
+                
+                <button id="rollBtn" disabled>Warten...</button>
             </div>
-            
-            <button id="rollBtn" disabled>Warten...</button>
         </div>
 
-        <div id="log-container"></div>
-        <div id="version-tag">V3.1 (Stable Layout)</div>
+        <div id="version-tag">V3.2 (Fix)</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
