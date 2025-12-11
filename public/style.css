@@ -4,33 +4,33 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start; 
-    
     color: #333;
     background-color: #e0e0e0;
-    
-    /* --- NEUER GAMING HINTERGRUND (SVG DATA URI) --- */
-    /* Ein sehr dezentes Muster aus Pixel-Kreuzen und Quadraten */
+    /* Dezentes Gaming Muster */
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='%239c9c9c' fill-opacity='0.08'%3E%3Cpath d='M30 26h-4v-4h-4v4h-4v4h4v4h4v-4h4z'/%3E%3Crect x='10' y='10' width='4' height='4'/%3E%3Crect x='46' y='46' width='4' height='4'/%3E%3Crect x='46' y='10' width='4' height='4'/%3E%3Crect x='10' y='46' width='4' height='4'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: 60px 60px; /* Größe des Kachel-Musters */
-    
+    background-size: 60px 60px;
     margin: 0; padding: 0; 
     height: 100dvh; width: 100vw;
     overflow: hidden; 
     touch-action: manipulation;
 }
 
+/* --- MUSIK TOGGLE BUTTON (NEU) --- */
+.music-toggle {
+    position: absolute; top: 15px; right: 15px;
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: rgba(255, 255, 255, 0.8); box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-size: 1.2rem; cursor: pointer; z-index: 3000; /* Über allem */
+    display: flex; justify-content: center; align-items: center;
+    transition: transform 0.1s;
+}
+.music-toggle:active { transform: scale(0.9); }
+
 /* --- HEADER --- */
 .top-section {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 10px;
-    z-index: 50;
-    flex: 0 0 auto; 
-    padding-bottom: 10px;
+    width: 100%; display: flex; flex-direction: column; align-items: center;
+    padding-top: 10px; z-index: 50; flex: 0 0 auto; padding-bottom: 10px;
 }
-
 h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 #header-info {
     font-size: 0.9rem; margin-bottom: 5px; background: rgba(255,255,255,0.8);
@@ -38,10 +38,7 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 }
 #turn-indicator, #my-status, #room-display { font-weight: bold; }
 #current-room-code { color: #2196F3; font-family: monospace; font-size: 1rem; }
-
-#setup-controls {
-    display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; 
-}
+#setup-controls { display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; }
 .bot-btn, .invite-btn {
     background-color: #4CAF50; color: white; border: none; padding: 6px 12px;
     border-radius: 4px; cursor: pointer; font-size: 0.8rem;
@@ -50,72 +47,33 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 
 /* --- BOARD --- */
 .board-wrapper { 
-    flex: 1 1 auto; 
-    width: 100%;
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    position: relative;
-    box-sizing: border-box;
-    padding: 10px 0; 
+    flex: 1 1 auto; width: 100%; display: flex; justify-content: center; 
+    align-items: center; position: relative; box-sizing: border-box; padding: 10px 0; 
 }
-
 .board-container {
-    width: min(95vw, calc(100dvh - 280px));
-    height: min(95vw, calc(100dvh - 280px));
-    
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
-    border-radius: 8px;
-    background-color: #111; 
-    padding: 1%; 
-    box-sizing: border-box;
-    
+    width: min(95vw, calc(100dvh - 280px)); height: min(95vw, calc(100dvh - 280px));
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius: 8px;
+    background-color: #111; padding: 1%; box-sizing: border-box;
     display: flex; justify-content: center; align-items: center;
 }
-
 #board { 
-    width: 100%; height: 100%;
-    position: relative; 
-    display: grid; 
-    grid-template-columns: repeat(11, 1fr); 
-    grid-template-rows: repeat(11, 1fr); 
-    gap: 0.5%; 
-    background-color: #222; 
+    width: 100%; height: 100%; position: relative; display: grid; 
+    grid-template-columns: repeat(11, 1fr); grid-template-rows: repeat(11, 1fr); 
+    gap: 0.5%; background-color: #222; 
 }
 
 /* --- FOOTER --- */
 .controls { 
-    flex: 0 0 auto; 
-    width: 100%; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: flex-end;
-    z-index: 20; 
-    padding-bottom: 20px; 
-    background: transparent;
-    min-height: 120px;
+    flex: 0 0 auto; width: 100%; display: flex; flex-direction: column; 
+    align-items: center; justify-content: flex-end; z-index: 20; 
+    padding-bottom: 20px; background: transparent; min-height: 120px;
 }
+.control-row { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 10px; }
 
-.control-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 10px;
-}
-
-/* --- UNSICHTBARER LOG TEXT --- */
+/* --- LOG TEXT (Getarnt) --- */
 #log-container { 
-    height: 25px; 
-    color: #e0e0e0; 
-    font-weight: bold; 
-    text-align: center; 
-    font-size: 1rem; 
-    width: 100%; 
-    text-shadow: none; 
-    background: transparent;
-    user-select: none;
+    height: 25px; color: #e0e0e0; font-weight: bold; text-align: center; 
+    font-size: 1rem; width: 100%; text-shadow: none; background: transparent; user-select: none;
 }
 
 /* --- ELEMENTE --- */
@@ -161,24 +119,19 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
     box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; width: 90%; max-width: 350px;
 }
 .landing-card h1 { margin-bottom: 10px; font-size: 1.5rem; }
-
 .landing-card input { 
     width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; 
     border-radius: 8px; font-size: 1rem; text-align: center; box-sizing: border-box; 
 }
-
 .big-btn { 
     width: 100%; padding: 12px; border: none; border-radius: 8px; 
     background-color: #4CAF50; color: white; font-size: 1rem; cursor: pointer; 
     font-weight: bold; transition: transform 0.1s; 
 }
 .big-btn.outline { background-color: transparent; border: 2px solid #2196F3; color: #2196F3; }
-
 .divider { margin: 30px 0; color: #aaa; font-size: 0.9rem; font-weight: bold; letter-spacing: 2px; }
-
 .join-area { display: flex; gap: 10px; width: 100%; }
 .join-area input, .join-area button { flex: 1; margin: 0 !important; }
-
 #landing-msg { color: #d32f2f; margin-top: 10px; font-weight: bold; min-height: 20px;}
 
 /* 3D WÜRFEL */
@@ -204,11 +157,10 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
 
-/* Landscape Handy Optimierung */
+/* Landscape Handy */
 @media (max-height: 500px) and (orientation: landscape) {
     .top-section { display: none; }
     .board-container { width: min(90vw, calc(100dvh - 20px)); height: min(90vw, calc(100dvh - 20px)); }
     .controls { position: absolute; right: 10px; top: 50%; width: 100px; height: auto; transform: translateY(-50%); padding: 0; min-height: 0; }
     .control-row { flex-direction: column; gap: 10px; }
-    #log-container { position: absolute; bottom: 10px; left: 10px; text-align: left; width: 50%; }
 }
