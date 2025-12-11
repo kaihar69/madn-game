@@ -58,7 +58,6 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 }
 
 .board-container {
-    /* SICHERHEITSFORMEL V3.2 */
     width: min(95vw, calc(100dvh - 280px));
     height: min(95vw, calc(100dvh - 280px));
     
@@ -103,15 +102,23 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
     margin-top: 10px;
 }
 
+/* --- DEZENTER STATUS TEXT (HIER GEÄNDERT) --- */
 #log-container { 
     height: 25px; 
-    color: #d32f2f; 
+    
+    /* 40% Transparentes Schwarz = Dezentes Grau */
+    color: rgba(0, 0, 0, 0.4); 
+    
     font-weight: bold; 
     text-align: center; 
     font-size: 1rem; 
     width: 100%; 
-    text-shadow: 0 0 5px rgba(255,255,255,0.8);
+    
+    /* Text-Shadow entfernt, damit es flacher/ruhiger wirkt */
+    text-shadow: none; 
+    
     background: transparent;
+    transition: color 0.3s ease; /* Sanfter Übergang falls sich Farbe mal ändert */
 }
 
 /* --- ELEMENTE --- */
@@ -158,13 +165,11 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 }
 .landing-card h1 { margin-bottom: 10px; font-size: 1.5rem; }
 
-/* Input Styles allgemein */
 .landing-card input { 
     width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; 
     border-radius: 8px; font-size: 1rem; text-align: center; box-sizing: border-box; 
 }
 
-/* Großer Button oben */
 .big-btn { 
     width: 100%; padding: 12px; border: none; border-radius: 8px; 
     background-color: #4CAF50; color: white; font-size: 1rem; cursor: pointer; 
@@ -177,16 +182,14 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
     color: #aaa; font-size: 0.9rem; font-weight: bold; letter-spacing: 2px; 
 }
 
-/* HIER DIE ÄNDERUNG FÜR GLEICHE BREITE */
 .join-area { 
     display: flex; 
     gap: 10px; 
     width: 100%;
 }
-/* Input und Button in der Join-Area sollen exakt gleich groß sein (flex: 1) */
 .join-area input, .join-area button {
     flex: 1;
-    margin: 0 !important; /* Überschreibt das Margin vom generellen Input */
+    margin: 0 !important; 
 }
 
 #landing-msg { color: #d32f2f; margin-top: 10px; font-weight: bold; min-height: 20px;}
