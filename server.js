@@ -130,8 +130,7 @@ io.on('connection', (socket) => {
             const player = game.players[socket.id];
             if (!player || !game.running || player.color !== TURN_ORDER[game.turnIndex] || player.lastRoll) return;
             
-            // SOUND: Würfeln
-            io.to(roomId).emit('playSound', 'roll');
+            // HIER HABEN WIR DEN SOUND ENTFERNT...
             handleRoll(roomId, player);
         } catch (e) { console.error("Error Roll:", e); }
     });
@@ -243,6 +242,10 @@ function loadGameData() {
 // --- SPIEL LOGIK ---
 function handleRoll(roomId, player) {
     const game = games[roomId];
+    
+    // ... UND HIER EINGEFÜGT! Jetzt hören wir JEDEN Wurf.
+    io.to(roomId).emit('playSound', 'roll');
+
     player.lastRoll = Math.floor(Math.random() * 6) + 1;
     player.rollCount++; 
     const roll = player.lastRoll;
@@ -265,8 +268,6 @@ function handleRoll(roomId, player) {
     persistGame();
 
     if (player.isBot) {
-        // Bot Würfelt -> Auch hier Sound (oder beim Würfel Event oben schon erledigt)
-        // Wir verzögern hier nur den Ablauf
         if (canRetry) setTimeout(() => playBotRoll(roomId, player), DELAY_AFTER_ROLL);
         else if (movePossible) setTimeout(() => playBotMove(roomId, player), DELAY_AFTER_ROLL);
         else setTimeout(() => finishTurn(roomId, player, false), DELAY_AFTER_ROLL);
@@ -321,7 +322,6 @@ function tryMove(roomId, player, pieceIndex) {
         });
     }
 
-    // SOUND LOGIK: Kick oder Move
     if (kickedSomeone) io.to(roomId).emit('playSound', 'kick');
     else io.to(roomId).emit('playSound', 'move');
 
@@ -330,7 +330,6 @@ function tryMove(roomId, player, pieceIndex) {
     return true;
 }
 
-// ... Rest der Helper Funktionen bleibt gleich, aber für Vollständigkeit:
 function isMoveValid(game, player, pieceIndex, roll) {
     if (!player || !game) return false; 
     const currentPos = player.pieces[pieceIndex];
@@ -404,18 +403,9 @@ function nextTurn(roomId) {
     io.to(roomId).emit('turnUpdate', nextColor);
     checkBotTurn(roomId);
 }
-function checkBotTurn(roomId) {
-    const game = games[roomId]; if(!game) return;
-    const currentColor = TURN_ORDER[game.turnIndex];
-    const playerID = Object.keys(game.players).find(id => game.players[id].color === currentColor);
-    if(!playerID) return;
-    const player = game.players[playerID];
-    if (player && player.isBot) setTimeout(() => playBotRoll(roomId, player), DELAY_BETWEEN_TURNS);
-}
 function checkWin(roomId, player) { 
     if (player.pieces.every(p => p >= 100)) { 
         io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); 
-        // SOUND: WIN
         io.to(roomId).emit('playSound', 'win');
         setTimeout(() => resetGame(roomId), 10000); 
     } 
