@@ -1,14 +1,12 @@
 const socket = io();
 
-// --- SOUNDS INITIALISIEREN ---
+// --- SOUNDS ---
 const sounds = {
     roll: new Audio('/sounds/roll.mp3'),
     move: new Audio('/sounds/move.mp3'),
     kick: new Audio('/sounds/kick.mp3'),
     win:  new Audio('/sounds/win.mp3')
 };
-
-// Lautstärke etwas dämpfen
 Object.values(sounds).forEach(s => s.volume = 0.5);
 
 // --- KONFIGURATION ---
@@ -45,10 +43,20 @@ const targetPositions = {
 const boardElement = document.getElementById('board');
 const rollBtn = document.getElementById('rollBtn');
 const turnName = document.getElementById('current-player-name');
-const joinBtn = document.getElementById('joinBtn');
-const startBtn = document.getElementById('startBtn');
-const nameInput = document.getElementById('playerNameInput');
 const cubeElement = document.getElementById('diceCube');
+
+// LANDING ELEMENTS
+const landingView = document.getElementById('landing-view');
+const gameView = document.getElementById('game-view');
+const landingName = document.getElementById('landingNameInput');
+const createGameBtn = document.getElementById('createGameBtn');
+const joinGameBtn = document.getElementById('joinGameBtn');
+const roomCodeInput = document.getElementById('roomCodeInput');
+const landingMsg = document.getElementById('landing-msg');
+const currentRoomCodeDisplay = document.getElementById('current-room-code');
+const startBtn = document.getElementById('startBtn');
+const leaveBtn = document.getElementById('leaveBtn');
+
 let myColor = null;
 let amIPlaying = false;
 let currentPlayers = {}; 
@@ -86,77 +94,49 @@ initBoard();
 // --- SOUND HANDLER ---
 socket.on('playSound', (type) => {
     if (sounds[type]) {
-        // Clone Node erlaubt überlappende Sounds (schnelles Klicken)
-        // oder einfach play() und catch für Fehler (User Interaktion)
         sounds[type].currentTime = 0;
-        sounds[type].play().catch(e => console.log("Audio play prevented:", e));
+        sounds[type].play().catch(e => {});
     }
 });
 
-// --- BUTTONS ---
-rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
-joinBtn.addEventListener('click', () => {
-    const name = nameInput.value;
-    socket.emit('requestJoin', name);
+// --- LOBBY ACTIONS ---
+
+createGameBtn.addEventListener('click', () => {
+    const name = landingName.value;
+    if(!name) { landingMsg.innerText = "Bitte Namen eingeben!"; return; }
+    socket.emit('createGame', name);
 });
+
+joinGameBtn.addEventListener('click', () => {
+    const name = landingName.value;
+    const code = roomCodeInput.value;
+    if(!name) { landingMsg.innerText = "Bitte Namen eingeben!"; return; }
+    if(!code || code.length < 4) { landingMsg.innerText = "Code ungültig!"; return; }
+    socket.emit('requestJoin', { name: name, roomId: code });
+});
+
+leaveBtn.addEventListener('click', () => {
+    localStorage.removeItem('madn_token');
+    location.reload(); // Einfachste Art zum Reset
+});
+
+rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
 startBtn.addEventListener('click', () => { socket.emit('startGame'); });
 
 // --- RECONNECT LOGIK ---
-joinBtn.style.display = 'none';
-nameInput.style.display = 'none';
-startBtn.style.display = 'none';
-
 socket.on('connect', () => {
     const storedToken = localStorage.getItem('madn_token');
     if (storedToken) {
-        console.log("Versuche Rejoin...");
         socket.emit('requestRejoin', storedToken);
-    } else {
-        showLobbyUI();
     }
 });
 
 socket.on('rejoinError', () => {
-    console.log("Rejoin nicht möglich.");
     localStorage.removeItem('madn_token');
-    amIPlaying = false;
-    showLobbyUI();
+    // Bleibe auf Landing Page
 });
 
-function showLobbyUI() {
-    if(!amIPlaying) {
-        joinBtn.style.display = 'inline-block';
-        nameInput.style.display = 'inline-block';
-    }
-}
-
-// --- LOBBY LOGIK ---
-socket.on('serverStatus', (info) => {
-    if (amIPlaying) {
-        joinBtn.style.display = 'none';
-        nameInput.style.display = 'none'; 
-        if (!info.running) {
-            startBtn.style.display = 'inline-block';
-            startBtn.innerText = `Start (${info.count}/4)`;
-        } else {
-            startBtn.style.display = 'none';
-        }
-        return;
-    }
-    if (joinBtn.style.display !== 'none') {
-        if (info.running) {
-            joinBtn.disabled = true; joinBtn.innerText = "Spiel läuft..."; joinBtn.style.backgroundColor = "#999";
-            nameInput.disabled = true;
-            rollBtn.innerText = "Zuschauer";
-        } else if (info.full) {
-            joinBtn.disabled = true; joinBtn.innerText = "Lobby Voll"; joinBtn.style.backgroundColor = "#999";
-            nameInput.disabled = true;
-        } else {
-            joinBtn.disabled = false; joinBtn.innerText = `MITSPIELEN (${info.count}/4)`; joinBtn.style.backgroundColor = "#2196F3";
-            nameInput.disabled = false;
-        }
-    }
-});
+// --- SERVER EVENTS ---
 
 socket.on('joinSuccess', (data) => {
     amIPlaying = true;
@@ -165,17 +145,35 @@ socket.on('joinSuccess', (data) => {
     
     if (data.token) localStorage.setItem('madn_token', data.token);
 
+    // UI SWITCH
+    landingView.style.display = 'none';
+    gameView.style.display = 'block';
+    
+    currentRoomCodeDisplay.innerText = data.roomId;
+    
     document.getElementById('my-status').innerText = `${data.players[data.id].name}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
     
-    joinBtn.style.display = 'none';
-    nameInput.style.display = 'none';
-    startBtn.style.display = 'inline-block';
-    
-    if (data.rejoining) startBtn.style.display = 'none'; 
+    // Check if rejoining a running game
+    if(data.rejoining) {
+        startBtn.style.display = 'none';
+    }
 });
 
-socket.on('joinError', (msg) => { alert(msg); });
+socket.on('joinError', (msg) => {
+    landingMsg.innerText = msg;
+});
+
+// Status Update jetzt speziell für den Raum
+socket.on('roomStatus', (info) => {
+    if (!info.running) {
+        startBtn.style.display = 'inline-block';
+        startBtn.innerText = `Start (${info.count}/4)`;
+    } else {
+        startBtn.style.display = 'none';
+    }
+});
+
 socket.on('gameStarted', () => { startBtn.style.display = 'none'; });
 
 // --- GAMEPLAY ---
@@ -236,12 +234,10 @@ socket.on('gameLog', (msg) => {
 
 function renderPieces(players) {
     const activePieceIds = new Set();
-
     Object.values(players).forEach(player => {
         player.pieces.forEach((posIndex, pieceIndex) => {
             const pieceId = `piece-${player.color}-${pieceIndex}`;
             activePieceIds.add(pieceId);
-
             const coords = getCoordinates(posIndex, player.color, pieceIndex);
             
             let pieceEl = document.getElementById(pieceId);
@@ -249,7 +245,6 @@ function renderPieces(players) {
                 pieceEl = document.createElement('div');
                 pieceEl.id = pieceId;
                 pieceEl.classList.add('piece', player.color);
-                
                 pieceEl.onclick = () => { 
                     if (amIPlaying && player.color === myColor) {
                         socket.emit('movePiece', { pieceIndex: pieceIndex }); 
@@ -257,30 +252,19 @@ function renderPieces(players) {
                 };
                 boardElement.appendChild(pieceEl);
             }
-
             if (amIPlaying && player.color === myColor) {
-                pieceEl.style.cursor = "pointer";
-                pieceEl.style.zIndex = 101; 
+                pieceEl.style.cursor = "pointer"; pieceEl.style.zIndex = 101; 
             } else {
-                pieceEl.style.cursor = "default";
-                pieceEl.style.zIndex = 100;
+                pieceEl.style.cursor = "default"; pieceEl.style.zIndex = 100;
             }
-
-            const cellSize = 42; 
-            const boardPadding = 8;
-            
+            const cellSize = 42; const boardPadding = 8;
             const pixelX = boardPadding + (coords.x * cellSize);
             const pixelY = boardPadding + (coords.y * cellSize);
-
-            pieceEl.style.left = `${pixelX}px`;
-            pieceEl.style.top = `${pixelY}px`;
+            pieceEl.style.left = `${pixelX}px`; pieceEl.style.top = `${pixelY}px`;
         });
     });
-
     const allDomPieces = document.querySelectorAll('.piece');
-    allDomPieces.forEach(el => {
-        if (!activePieceIds.has(el.id)) el.remove();
-    });
+    allDomPieces.forEach(el => { if (!activePieceIds.has(el.id)) el.remove(); });
 }
 
 function getCoordinates(posIndex, color, pieceIndex) {
