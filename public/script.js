@@ -1,5 +1,16 @@
 const socket = io();
 
+// --- SOUNDS INITIALISIEREN ---
+const sounds = {
+    roll: new Audio('/sounds/roll.mp3'),
+    move: new Audio('/sounds/move.mp3'),
+    kick: new Audio('/sounds/kick.mp3'),
+    win:  new Audio('/sounds/win.mp3')
+};
+
+// Lautstärke etwas dämpfen
+Object.values(sounds).forEach(s => s.volume = 0.5);
+
 // --- KONFIGURATION ---
 const pathMap = [
     {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
@@ -72,6 +83,16 @@ function initBoard() {
 }
 initBoard();
 
+// --- SOUND HANDLER ---
+socket.on('playSound', (type) => {
+    if (sounds[type]) {
+        // Clone Node erlaubt überlappende Sounds (schnelles Klicken)
+        // oder einfach play() und catch für Fehler (User Interaktion)
+        sounds[type].currentTime = 0;
+        sounds[type].play().catch(e => console.log("Audio play prevented:", e));
+    }
+});
+
 // --- BUTTONS ---
 rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
 joinBtn.addEventListener('click', () => {
@@ -81,7 +102,6 @@ joinBtn.addEventListener('click', () => {
 startBtn.addEventListener('click', () => { socket.emit('startGame'); });
 
 // --- RECONNECT LOGIK ---
-// UI verstecken bis Status klar ist
 joinBtn.style.display = 'none';
 nameInput.style.display = 'none';
 startBtn.style.display = 'none';
@@ -111,7 +131,6 @@ function showLobbyUI() {
 }
 
 // --- LOBBY LOGIK ---
-
 socket.on('serverStatus', (info) => {
     if (amIPlaying) {
         joinBtn.style.display = 'none';
@@ -124,7 +143,6 @@ socket.on('serverStatus', (info) => {
         }
         return;
     }
-
     if (joinBtn.style.display !== 'none') {
         if (info.running) {
             joinBtn.disabled = true; joinBtn.innerText = "Spiel läuft..."; joinBtn.style.backgroundColor = "#999";
@@ -160,8 +178,7 @@ socket.on('joinSuccess', (data) => {
 socket.on('joinError', (msg) => { alert(msg); });
 socket.on('gameStarted', () => { startBtn.style.display = 'none'; });
 
-// --- GAMEPLAY & ANIMATION ---
-
+// --- GAMEPLAY ---
 socket.on('updateBoard', (players) => { 
     currentPlayers = players;
     renderPieces(players); 
@@ -217,7 +234,6 @@ socket.on('gameLog', (msg) => {
     setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
 });
 
-// NEUE RENDER LOGIK: Absolute Positionierung & Wiederverwendung von Elementen
 function renderPieces(players) {
     const activePieceIds = new Set();
 
@@ -250,9 +266,6 @@ function renderPieces(players) {
                 pieceEl.style.zIndex = 100;
             }
 
-            // Umrechnung Grid (40px + 2px Gap) zu Pixeln
-            // Padding Board = 8px. Zelle = 40px. Gap = 2px.
-            // Formel: 8px (Rand) + (Koordinate * 42px)
             const cellSize = 42; 
             const boardPadding = 8;
             
@@ -264,7 +277,6 @@ function renderPieces(players) {
         });
     });
 
-    // Alte Figuren entfernen
     const allDomPieces = document.querySelectorAll('.piece');
     allDomPieces.forEach(el => {
         if (!activePieceIds.has(el.id)) el.remove();
