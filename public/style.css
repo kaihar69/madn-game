@@ -9,11 +9,11 @@ body {
     background-size: 20px 20px;
     margin: 0; padding: 0; 
     height: 100dvh; width: 100vw;
-    overflow: hidden; /* Kein Scrollen */
+    overflow: hidden; 
     touch-action: manipulation;
 }
 
-/* LANDING PAGE (Bleibt fast gleich, nur z-index sicherstellen) */
+/* LANDING PAGE */
 #landing-view {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
@@ -69,16 +69,14 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 }
 
 .board-container {
-    /* Das Herzstück: Board ist quadratisch (aspect-ratio) 
-       und nimmt maximal 90% der kleineren Seite (vmin) ein. */
     width: 90vmin; 
     height: 90vmin;
-    max-width: 600px; /* Optional: Nicht riesig auf 4k Monitoren */
+    max-width: 600px; 
     max-height: 600px;
     box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
     border-radius: 8px;
-    background-color: #111; /* Rahmenfarbe */
-    padding: 1%; /* Relativer Rahmen */
+    background-color: #111; 
+    padding: 1%; 
     box-sizing: border-box;
 }
 
@@ -87,10 +85,9 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
     height: 100%;
     position: relative; 
     display: grid; 
-    /* 11 Spalten/Reihen, jede nimmt gleich viel Platz (1fr) */
     grid-template-columns: repeat(11, 1fr); 
     grid-template-rows: repeat(11, 1fr); 
-    gap: 0.5%; /* Relativer Abstand zwischen Feldern */
+    gap: 0.5%; 
     background-color: #222; 
 }
 
@@ -107,25 +104,21 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 .start-field-blue { background-color: #e3f2fd; border: 2px solid #1976d2; }
 .start-field-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
 .start-field-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
-/* Bases & Targets analog... weniger Border für cleaneren Look */
 .base-red, .target-red { background-color: rgba(211, 47, 47, 0.2); border: 1px solid #d32f2f; }
 .base-blue, .target-blue { background-color: rgba(25, 118, 210, 0.2); border: 1px solid #1976d2; }
 .base-green, .target-green { background-color: rgba(56, 142, 60, 0.2); border: 1px solid #388e3c; }
 .base-yellow, .target-yellow { background-color: rgba(251, 192, 45, 0.2); border: 1px solid #fbc02d; }
 .target-red, .target-blue, .target-green, .target-yellow { background-color: rgba(255,255,255,0.8); }
 
-/* FIGUREN (Responsive Größe) */
+/* FIGUREN (KORRIGIERT: 6.2% statt 80%) */
 .piece { 
-    /* Größe relativ zur Zelle (80%) */
-    width: 80%; 
-    height: 80%; 
+    width: 6.2%; 
+    height: 6.2%; 
     border-radius: 50%; 
     border: 2px solid white; 
     box-shadow: 2px 2px 5px rgba(0,0,0,0.5); 
     
     position: absolute; 
-    /* Zentrierung passiert jetzt per Script über % */
-    
     z-index: 100; 
     transition: left 0.5s ease-out, top 0.5s ease-out;
     display: flex; justify-content: center; align-items: center; 
@@ -136,12 +129,11 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0;
 
 /* CONTROLS (Würfel) */
 .controls { 
-    /* Fester Platz unten, unabhängig vom Board */
     height: 120px; 
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     width: 100%; z-index: 20; flex-shrink: 0;
     gap: 10px;
-    padding-bottom: 20px; /* Abstand zum Rand unten */
+    padding-bottom: 20px; 
 }
 
 button#rollBtn { 
@@ -154,7 +146,7 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 /* LOGS */
 #log-container { 
     height: 30px; color: #d32f2f; font-weight: bold; text-align: center; 
-    font-size: 1rem; position: absolute; bottom: 85px; /* Über dem Würfel */
+    font-size: 1rem; position: absolute; bottom: 85px; 
     width: 100%; pointer-events: none; z-index: 100; 
     text-shadow: 0 0 5px rgba(255,255,255,1); background: rgba(255,255,255,0.4);
 }
@@ -183,8 +175,6 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
 
-/* KEINE MEDIA QUERIES MEHR NÖTIG FÜR DAS BOARD! */
-/* Nur für Landscape Mode bei Handys (Horizontal), damit Header verschwindet */
 @media (max-height: 500px) and (orientation: landscape) {
     h1, #header-info { display: none; }
     .board-container { width: 85vmin; height: 85vmin; }
