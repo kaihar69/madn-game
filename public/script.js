@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- KONFIGURATION (JETZT VOLLSTÄNDIG) ---
+// --- KONFIGURATION ---
 const pathMap = [
     {x:0, y:4}, {x:1, y:4}, {x:2, y:4}, {x:3, y:4}, {x:4, y:4}, 
     {x:4, y:3}, {x:4, y:2}, {x:4, y:1}, {x:4, y:0},             
@@ -74,15 +74,42 @@ initBoard();
 
 // --- BUTTONS ---
 rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
-
 joinBtn.addEventListener('click', () => {
     const name = nameInput.value;
     socket.emit('requestJoin', name);
 });
+startBtn.addEventListener('click', () => { socket.emit('startGame'); });
 
-startBtn.addEventListener('click', () => {
-    socket.emit('startGame');
+// --- RECONNECT LOGIK ---
+// Wir verstecken erstmal alles, bis wir wissen, ob Rejoin klappt
+joinBtn.style.display = 'none';
+nameInput.style.display = 'none';
+startBtn.style.display = 'none';
+
+socket.on('connect', () => {
+    const storedToken = localStorage.getItem('madn_token');
+    if (storedToken) {
+        console.log("Versuche Rejoin...");
+        socket.emit('requestRejoin', storedToken);
+    } else {
+        // Kein Token? Dann normale Lobby anzeigen
+        showLobbyUI();
+    }
 });
+
+socket.on('rejoinError', () => {
+    console.log("Rejoin nicht möglich.");
+    localStorage.removeItem('madn_token');
+    amIPlaying = false;
+    showLobbyUI();
+});
+
+function showLobbyUI() {
+    if(!amIPlaying) {
+        joinBtn.style.display = 'inline-block';
+        nameInput.style.display = 'inline-block';
+    }
+}
 
 // --- LOBBY LOGIK ---
 
@@ -99,20 +126,19 @@ socket.on('serverStatus', (info) => {
         return;
     }
 
-    startBtn.style.display = 'none';
-    joinBtn.style.display = 'inline-block';
-    nameInput.style.display = 'inline-block';
-
-    if (info.running) {
-        joinBtn.disabled = true; joinBtn.innerText = "Spiel läuft..."; joinBtn.style.backgroundColor = "#999";
-        nameInput.disabled = true;
-        rollBtn.innerText = "Zuschauer";
-    } else if (info.full) {
-        joinBtn.disabled = true; joinBtn.innerText = "Lobby Voll"; joinBtn.style.backgroundColor = "#999";
-        nameInput.disabled = true;
-    } else {
-        joinBtn.disabled = false; joinBtn.innerText = `MITSPIELEN (${info.count}/4)`; joinBtn.style.backgroundColor = "#2196F3";
-        nameInput.disabled = false;
+    // Falls Rejoin fehlgeschlagen ist, Status hier updaten
+    if (joinBtn.style.display !== 'none') {
+        if (info.running) {
+            joinBtn.disabled = true; joinBtn.innerText = "Spiel läuft..."; joinBtn.style.backgroundColor = "#999";
+            nameInput.disabled = true;
+            rollBtn.innerText = "Zuschauer";
+        } else if (info.full) {
+            joinBtn.disabled = true; joinBtn.innerText = "Lobby Voll"; joinBtn.style.backgroundColor = "#999";
+            nameInput.disabled = true;
+        } else {
+            joinBtn.disabled = false; joinBtn.innerText = `MITSPIELEN (${info.count}/4)`; joinBtn.style.backgroundColor = "#2196F3";
+            nameInput.disabled = false;
+        }
     }
 });
 
@@ -120,12 +146,22 @@ socket.on('joinSuccess', (data) => {
     amIPlaying = true;
     currentPlayers = data.players;
     myColor = data.players[data.id].color;
+    
+    if (data.token) {
+        localStorage.setItem('madn_token', data.token);
+    }
+
     document.getElementById('my-status').innerText = `${data.players[data.id].name}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
     
     joinBtn.style.display = 'none';
     nameInput.style.display = 'none';
     startBtn.style.display = 'inline-block';
+    
+    if (data.rejoining) {
+        // Wenn Spiel schon läuft, Button verstecken
+        startBtn.style.display = 'none'; 
+    }
 });
 
 socket.on('joinError', (msg) => { alert(msg); });
