@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const fs = require('fs'); // NEU: Dateisystem-Modul
 
 app.use(express.static('public'));
 
@@ -11,9 +12,13 @@ const START_OFFSETS = { 'red': 0, 'blue': 10, 'green': 20, 'yellow': 30 };
 const ENTRY_POINTS = { 'red': 39, 'blue': 9, 'green': 19, 'yellow': 29 };
 const DELAY_AFTER_ROLL = 2000; 
 const DELAY_BETWEEN_TURNS = 1500; 
+const DATA_FILE = 'game_state.json'; // NEU: Speicherdatei
 
 // GLOBALE LOBBY
-const games = {}; 
+let games = {}; // WICHTIG: 'let' damit wir überschreiben können
+
+// BEIM START DATEN LADEN
+loadGameData();
 
 io.on('connection', (socket) => {
     emitStatus(socket);
@@ -51,6 +56,8 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('updateBoard', game.players);
             io.to(roomId).emit('turnUpdate', TURN_ORDER[game.turnIndex]);
             broadcastStatus(roomId); 
+            
+            persistGame(); // SPEICHERN
         } catch (e) {
             console.error("Error Join:", e);
         }
@@ -78,6 +85,9 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('updateBoard', game.players);
             io.to(roomId).emit('gameStarted');
             broadcastStatus(roomId);
+            
+            persistGame(); // SPEICHERN
+
             checkBotTurn(roomId);
         } catch (e) { console.error("Error Start:", e); }
     });
@@ -109,7 +119,6 @@ io.on('connection', (socket) => {
             // ZWANGSZUG PRÜFUNG
             const forcedIndex = getForcedMoveIndex(game, player);
             if (forcedIndex !== -1) {
-                // Sonderfall: Wenn Zwang "Rauskommen" ist (Figur im Haus), darf er JEDE Figur im Haus nehmen
                 const isForcedInHouse = player.pieces[forcedIndex] === -1;
                 const isSelectedInHouse = player.pieces[data.pieceIndex] === -1;
 
@@ -119,7 +128,6 @@ io.on('connection', (socket) => {
                         return;
                     }
                 } else {
-                    // Strenger Zwang (z.B. Feld räumen), genau DIESE Figur muss es sein
                     if (data.pieceIndex !== forcedIndex) {
                         socket.emit('gameLog', "Zwang: Du musst den Startplatz räumen!");
                         return;
@@ -150,6 +158,7 @@ io.on('connection', (socket) => {
                         delete game.players[socket.id];
                         io.to(roomId).emit('updateBoard', game.players);
                         broadcastStatus(roomId);
+                        persistGame(); // SPEICHERN
                     } else {
                         io.to(roomId).emit('gameLog', `${player.name} ist weg. Bot übernimmt.`);
                         const botId = `bot-rep-${Date.now()}`;
@@ -164,6 +173,8 @@ io.on('connection', (socket) => {
                         }
                         const humanLeft = Object.values(game.players).some(p => !p.isBot);
                         if (!humanLeft) setTimeout(() => resetGame(roomId), 5000);
+
+                        persistGame(); // SPEICHERN
                     }
                 }
             }
@@ -183,6 +194,7 @@ function resetGame(roomId) {
         io.to(roomId).emit('updateBoard', {});
         io.to(roomId).emit('gameLog', "Spiel wurde zurückgesetzt.");
         io.to(roomId).emit('turnUpdate', 'red'); 
+        persistGame(); // SPEICHERN
     }
 }
 
@@ -201,6 +213,29 @@ function emitStatus(socket) {
         socket.emit('updateBoard', game.players); 
     } else {
         socket.emit('serverStatus', { running: false, count: 0, full: false });
+    }
+}
+
+// --- PERSISTENZ (NEU) ---
+function persistGame() {
+    try {
+        const data = JSON.stringify(games, null, 2);
+        fs.writeFileSync(DATA_FILE, data);
+    } catch (e) {
+        console.error("Fehler beim Speichern:", e);
+    }
+}
+
+function loadGameData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const data = fs.readFileSync(DATA_FILE, 'utf8');
+            games = JSON.parse(data);
+            console.log("Spielstand erfolgreich geladen.");
+        }
+    } catch (e) {
+        console.error("Fehler beim Laden:", e);
+        games = {};
     }
 }
 
@@ -242,6 +277,8 @@ function handleRoll(roomId, player) {
     if (canRetry) io.to(roomId).emit('gameLog', `${player.name}: Versuch ${player.rollCount}/3...`);
     else if (!movePossible) io.to(roomId).emit('gameLog', `${player.name} kann nicht ziehen.`);
 
+    persistGame(); // SPEICHERN (Status geändert)
+
     if (player.isBot) {
         if (canRetry) setTimeout(() => playBotRoll(roomId, player), DELAY_AFTER_ROLL);
         else if (movePossible) setTimeout(() => playBotMove(roomId, player), DELAY_AFTER_ROLL);
@@ -251,33 +288,28 @@ function handleRoll(roomId, player) {
     }
 }
 
-// HIER IST DIE NEUE LOGIK FÜR DEN ZWANG
 function getForcedMoveIndex(game, player) {
     const startPos = START_OFFSETS[player.color];
     const hasInHouse = player.pieces.some(p => p === -1);
 
     // PRIO 1: Rauskommen bei 6
     if (player.lastRoll === 6 && hasInHouse) {
-        // Wenn Startfeld NICHT von mir selbst blockiert ist
         if (!isOccupiedBySelf(player, startPos)) {
-            // Wir geben irgendeinen Index im Haus zurück (wird in movePiece behandelt)
             return player.pieces.findIndex(p => p === -1);
         }
     }
 
     // PRIO 2: Startfeld räumen
-    // Wenn ich Figuren im Haus habe UND das Startfeld blockiere
     if (hasInHouse) {
         const indexOnStart = player.pieces.findIndex(p => p === startPos);
         if (indexOnStart !== -1) {
-            // Nur wenn Zug möglich (nicht blockiert)
             if (isMoveValid(game, player, indexOnStart, player.lastRoll)) {
                 return indexOnStart;
             }
         }
     }
 
-    return -1; // Kein Zwang
+    return -1; 
 }
 
 function tryMove(roomId, player, pieceIndex) {
@@ -311,6 +343,7 @@ function tryMove(roomId, player, pieceIndex) {
     }
 
     player.pieces[pieceIndex] = newPos;
+    persistGame(); // SPEICHERN (Bewegung erfolgt)
     return true;
 }
 
@@ -455,7 +488,12 @@ function canMoveAny(game, player) {
     for (let i = 0; i < 4; i++) { if (isMoveValid(game, player, i, player.lastRoll)) return true; }
     return false;
 }
-function checkWin(roomId, player) { if (player.pieces.every(p => p >= 100)) { io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); setTimeout(() => resetGame(roomId), 10000); } }
+function checkWin(roomId, player) { 
+    if (player.pieces.every(p => p >= 100)) { 
+        io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); 
+        setTimeout(() => resetGame(roomId), 10000); 
+    } 
+}
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Server auf Port ${PORT}`));
