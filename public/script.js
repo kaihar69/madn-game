@@ -63,8 +63,6 @@ let currentPlayers = {};
 
 function initBoard() {
     boardElement.innerHTML = '';
-    // Wir erstellen die Zellen nur noch für die Optik (Kreise)
-    // Das Layout (Position) regelt CSS Grid
     for (let y = 0; y < 11; y++) {
         for (let x = 0; x < 11; x++) {
             const cell = document.createElement('div');
@@ -86,7 +84,6 @@ function initBoard() {
                 if(positions.some(p => p.x === x && p.y === y)) cell.classList.add(`target-${color}`); 
             });
 
-            // Wir geben den Zellen keine ID mehr für Positionierung, das macht jetzt renderPieces relativ
             boardElement.appendChild(cell);
         }
     }
@@ -223,7 +220,7 @@ socket.on('gameLog', (msg) => {
     setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
 });
 
-// --- NEUES RESPONSIVE RENDER SYSTEM ---
+// --- RENDER PIECES (KORRIGIERT FÜR 6.2% GRÖSSE) ---
 function renderPieces(players) {
     const activePieceIds = new Set();
     Object.values(players).forEach(player => {
@@ -250,21 +247,16 @@ function renderPieces(players) {
                 pieceEl.style.cursor = "default"; pieceEl.style.zIndex = 100;
             }
 
-            // POSITIONIERUNG IN PROZENT
-            // Wir haben 11 Felder. Ein Feld ist also 100% / 11 = 9.09% breit.
-            // Der Gap im CSS ist minimal (0.5%), den ignorieren wir hier für die einfache Rechnung fast,
-            // oder wir rechnen ihn raus.
-            // Beste Lösung für Grid: 
-            // left = (coords.x / 11) * 100%
-            // Wir müssen aber zentrieren. 
-            // Ein Stück ist 80% der Zelle groß (siehe CSS). 
-            // Also müssen wir 10% Offset addieren.
+            // POSITIONIERUNG:
+            // Spaltenbreite: 100 / 11 = 9.09%
+            // Figurbreite (CSS): 6.2%
+            // Offset: (9.09 - 6.2) / 2 = 1.445%
             
-            const step = 100 / 11; // Breite einer Spalte in %
-            const offset = step * 0.1; // Kleiner Schubs, um die Figur in der Zelle zu zentrieren (optisch)
+            const step = 100 / 11; 
+            const offset = (step - 6.2) / 2;
             
-            const leftPercent = (coords.x * step) + (step * 0.1); // +10% der Zellbreite für Zentrierung
-            const topPercent = (coords.y * step) + (step * 0.1);
+            const leftPercent = (coords.x * step) + offset;
+            const topPercent = (coords.y * step) + offset;
 
             pieceEl.style.left = `${leftPercent}%`;
             pieceEl.style.top = `${topPercent}%`;
