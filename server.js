@@ -120,6 +120,15 @@ io.on('connection', (socket) => {
         } catch (e) { console.error("Error Start:", e); }
     });
 
+    // --- EMOJIS (NEU) ---
+    socket.on('sendEmote', (emoji) => {
+        const roomId = socket.data.roomId;
+        if(roomId && games[roomId]) {
+            // Sende Emoji an ALLE im Raum (inkl. Absender)
+            io.to(roomId).emit('emoteReceived', emoji);
+        }
+    });
+
     // --- SPIEL AKTIONEN ---
     socket.on('rollDice', () => {
         const roomId = socket.data.roomId;
@@ -137,7 +146,6 @@ io.on('connection', (socket) => {
             const player = games[roomId].players[socket.id];
             if (player && games[roomId].running && player.color === TURN_ORDER[games[roomId].turnIndex] && player.lastRoll) {
                 
-                // Zwangsprüfung
                 const forcedIndex = getForcedMoveIndex(games[roomId], player);
                 if (forcedIndex !== -1) {
                     const isForcedInHouse = player.pieces[forcedIndex] === -1;
@@ -247,7 +255,7 @@ function loadGameData() {
         } 
     } catch (e) { games = {}; }
 }
-function emitStatus(socket) { socket.emit('serverStatus', { running: false, count: 0 }); } // Dummy
+function emitStatus(socket) { socket.emit('serverStatus', { running: false, count: 0 }); }
 
 // --- GAME LOGIC ---
 
@@ -294,18 +302,15 @@ function handleRoll(roomId, player) {
     }
 }
 
-// --- KILLER BOT LOGIC ---
 function playBotMove(roomId, bot) {
     const game = games[roomId];
     if(!game || !bot.lastRoll) { finishTurn(roomId, bot, false); return; }
 
-    // 1. Zwang
     const forcedIdx = getForcedMoveIndex(game, bot);
     if (forcedIdx !== -1) { 
         if (tryMove(roomId, bot, forcedIdx)) { finishBotTurn(roomId, game, bot); return; }
     }
 
-    // 2. Score Calculation
     let possibleMoves = [];
     for (let i = 0; i < 4; i++) {
         if (isMoveValid(game, bot, i, bot.lastRoll)) {
@@ -314,7 +319,6 @@ function playBotMove(roomId, bot) {
         }
     }
 
-    // 3. Execute Best Move
     if (possibleMoves.length > 0) {
         possibleMoves.sort((a, b) => b.score - a.score);
         if (tryMove(roomId, bot, possibleMoves[0].index)) {
@@ -339,22 +343,20 @@ function evaluateMove(game, player, pieceIndex, roll) {
         else newPos = (currentPos + roll) % 40;
     }
 
-    // SCORING
     if (newPos < 100) {
         Object.values(game.players).forEach(other => {
             if (other.id !== player.id) {
-                other.pieces.forEach(pos => { if (pos === newPos) score += 100; }); // KILL!
+                other.pieces.forEach(pos => { if (pos === newPos) score += 100; }); 
             }
         });
     }
-    if (newPos >= 100) score += 50; // Ziel
-    if (currentPos === -1) score += 30; // Rauskommen
-    score += 10; // Laufen
+    if (newPos >= 100) score += 50; 
+    if (currentPos === -1) score += 30; 
+    score += 10; 
 
     return score;
 }
 
-// --- MISSING FUNCTION ADDED HERE ---
 function finishBotTurn(roomId, game, bot) {
     io.to(roomId).emit('updateBoard', game.players); 
     checkWin(roomId, bot); 
