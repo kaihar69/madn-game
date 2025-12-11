@@ -17,20 +17,18 @@ const DATA_FILE = 'game_state.json';
 // GLOBALE LOBBY
 let games = {}; 
 
-// START: Daten laden
 loadGameData();
 
 io.on('connection', (socket) => {
     emitStatus(socket);
     
-    // --- REJOIN (PRIORITÄT 1) ---
+    // --- REJOIN ---
     socket.on('requestRejoin', (token) => {
         try {
             const roomId = 'global';
             if (!games[roomId]) { socket.emit('rejoinError'); return; }
             const game = games[roomId];
 
-            // Suche Token (egal ob bei Bot oder inaktivem Spieler)
             let foundPlayerId = null;
             Object.values(game.players).forEach(p => {
                 if (p.token === token) foundPlayerId = p.id;
@@ -38,18 +36,14 @@ io.on('connection', (socket) => {
 
             if (foundPlayerId) {
                 const oldPlayer = game.players[foundPlayerId];
-                console.log(`Rejoin: ${oldPlayer.name} übernimmt wieder.`);
-
-                // Alten Eintrag löschen
                 delete game.players[foundPlayerId];
 
-                // Neuen Eintrag erstellen
                 game.players[socket.id] = {
                     ...oldPlayer,
                     id: socket.id,
                     isBot: false,
                     name: oldPlayer.name.replace(' (Bot)', ''),
-                    token: token // Token behalten
+                    token: token 
                 };
 
                 socket.join(roomId);
@@ -66,7 +60,7 @@ io.on('connection', (socket) => {
         } catch (e) { console.error("Error Rejoin:", e); }
     });
 
-    // --- JOIN (NEU) ---
+    // --- JOIN ---
     socket.on('requestJoin', (playerName) => {
         try {
             if (getGameRunning(socket)) { socket.emit('joinError', 'Spiel läuft bereits!'); return; }
@@ -83,7 +77,6 @@ io.on('connection', (socket) => {
             let safeName = (playerName || "").substring(0, 12).trim();
             if (safeName.length === 0) safeName = `Spieler ${Object.keys(game.players).length + 1}`;
 
-            // Token generieren
             const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
             const color = getColor(Object.keys(game.players).length);
             
@@ -136,6 +129,9 @@ io.on('connection', (socket) => {
             if (!game) return;
             const player = game.players[socket.id];
             if (!player || !game.running || player.color !== TURN_ORDER[game.turnIndex] || player.lastRoll) return;
+            
+            // SOUND: Würfeln
+            io.to(roomId).emit('playSound', 'roll');
             handleRoll(roomId, player);
         } catch (e) { console.error("Error Roll:", e); }
     });
@@ -184,14 +180,13 @@ io.on('connection', (socket) => {
                         broadcastStatus(roomId);
                         persistGame();
                     } else {
-                        // Spiel läuft: Bot übernimmt, Token wird gesichert
                         if (game.players[socket.id] && !game.players[socket.id].rejoined) {
                              io.to(roomId).emit('gameLog', `${player.name} ist kurz weg...`);
                             
                             const botId = `bot-rep-${Date.now()}`;
                             game.players[botId] = {
                                 ...player, id: botId, name: `${player.name} (Bot)`, isBot: true, lastRoll: null,
-                                token: player.token // TOKEN SICHERN
+                                token: player.token 
                             };
                             delete game.players[socket.id];
                             
@@ -270,6 +265,8 @@ function handleRoll(roomId, player) {
     persistGame();
 
     if (player.isBot) {
+        // Bot Würfelt -> Auch hier Sound (oder beim Würfel Event oben schon erledigt)
+        // Wir verzögern hier nur den Ablauf
         if (canRetry) setTimeout(() => playBotRoll(roomId, player), DELAY_AFTER_ROLL);
         else if (movePossible) setTimeout(() => playBotMove(roomId, player), DELAY_AFTER_ROLL);
         else setTimeout(() => finishTurn(roomId, player, false), DELAY_AFTER_ROLL);
@@ -292,6 +289,7 @@ function getForcedMoveIndex(game, player) {
     }
     return -1; 
 }
+
 function tryMove(roomId, player, pieceIndex) {
     const game = games[roomId];
     if (!isMoveValid(game, player, pieceIndex, player.lastRoll)) return false;
@@ -306,19 +304,33 @@ function tryMove(roomId, player, pieceIndex) {
         if (distanceToEntry < roll) newPos = 100 + (roll - distanceToEntry - 1);
         else newPos = (currentPos + roll) % 40;
     }
+
+    let kickedSomeone = false;
+
     if (newPos < 100) {
         Object.values(game.players).forEach(other => {
             if (other.id !== player.id) {
                 other.pieces.forEach((pos, idx) => {
-                    if (pos === newPos) { other.pieces[idx] = -1; io.to(roomId).emit('gameLog', `${player.name} kickt ${other.name}!`); }
+                    if (pos === newPos) { 
+                        other.pieces[idx] = -1; 
+                        io.to(roomId).emit('gameLog', `${player.name} kickt ${other.name}!`); 
+                        kickedSomeone = true;
+                    }
                 });
             }
         });
     }
+
+    // SOUND LOGIK: Kick oder Move
+    if (kickedSomeone) io.to(roomId).emit('playSound', 'kick');
+    else io.to(roomId).emit('playSound', 'move');
+
     player.pieces[pieceIndex] = newPos;
     persistGame();
     return true;
 }
+
+// ... Rest der Helper Funktionen bleibt gleich, aber für Vollständigkeit:
 function isMoveValid(game, player, pieceIndex, roll) {
     if (!player || !game) return false; 
     const currentPos = player.pieces[pieceIndex];
@@ -400,7 +412,14 @@ function checkBotTurn(roomId) {
     const player = game.players[playerID];
     if (player && player.isBot) setTimeout(() => playBotRoll(roomId, player), DELAY_BETWEEN_TURNS);
 }
-function checkWin(roomId, player) { if (player.pieces.every(p => p >= 100)) { io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); setTimeout(() => resetGame(roomId), 10000); } }
+function checkWin(roomId, player) { 
+    if (player.pieces.every(p => p >= 100)) { 
+        io.to(roomId).emit('gameLog', `${player.name} GEWINNT!!!`); 
+        // SOUND: WIN
+        io.to(roomId).emit('playSound', 'win');
+        setTimeout(() => resetGame(roomId), 10000); 
+    } 
+}
 function getColor(index) { return ['red', 'blue', 'green', 'yellow'][index]; }
 function isOccupiedBySelf(player, pos) { return player.pieces.includes(pos); }
 function isPathBlockedInTarget(player, startIdx, endIdx) { for (let i = startIdx + 1; i < endIdx; i++) { if (player.pieces.includes(100 + i)) return true; } return false; }
