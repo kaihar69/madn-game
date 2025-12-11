@@ -7,42 +7,64 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Mensch ärgere dich nicht</h1>
     
-    <div id="header-info">
-        <span id="my-status">Zuschauer</span> | 
-        <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
-    </div>
-
-    <div id="setup-controls">
-        <input type="text" id="playerNameInput" placeholder="Dein Name" maxlength="12">
-        <button id="joinBtn" class="invite-btn">MITSPIELEN</button>
-        <button id="startBtn" class="bot-btn" style="display:none;">Spiel Starten (+Bots)</button>
-    </div>
-
-    <div class="board-wrapper">
-        <div class="board-container">
-            <div id="board"></div>
+    <div id="landing-view">
+        <div class="landing-card">
+            <h1>Mensch ärgere dich nicht</h1>
+            <p>Erstelle einen Raum oder tritt einem bei.</p>
+            
+            <input type="text" id="landingNameInput" placeholder="Dein Name" maxlength="12">
+            
+            <div class="landing-actions">
+                <button id="createGameBtn" class="big-btn">Neues Spiel erstellen</button>
+                <div class="divider">- ODER -</div>
+                <div class="join-area">
+                    <input type="text" id="roomCodeInput" placeholder="Code (z.B. AX92)" maxlength="4">
+                    <button id="joinGameBtn" class="big-btn outline">Beitreten</button>
+                </div>
+            </div>
+            <div id="landing-msg"></div>
         </div>
     </div>
 
-    <div class="controls">
-        <div class="scene">
-            <div class="cube" id="diceCube">
-                <div class="cube__face cube__face--1">1</div>
-                <div class="cube__face cube__face--2">2</div>
-                <div class="cube__face cube__face--3">3</div>
-                <div class="cube__face cube__face--4">4</div>
-                <div class="cube__face cube__face--5">5</div>
-                <div class="cube__face cube__face--6">6</div>
+    <div id="game-view" style="display:none;">
+        <h1>Mensch ärgere dich nicht</h1>
+        
+        <div id="header-info">
+            <span id="room-display">Raum: <span id="current-room-code">----</span></span> | 
+            <span id="my-status">...</span> | 
+            <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
+        </div>
+
+        <div id="setup-controls">
+            <button id="startBtn" class="bot-btn" style="display:none;">Spiel Starten (+Bots)</button>
+            <button id="leaveBtn" class="invite-btn" style="background-color:#d32f2f;">Verlassen</button>
+        </div>
+
+        <div class="board-wrapper">
+            <div class="board-container">
+                <div id="board"></div>
             </div>
         </div>
-        
-        <button id="rollBtn" disabled>Zuschauer...</button>
-    </div>
 
-    <div id="log-container"></div>
-    <div id="version-tag">V2.0 (Fixed)</div>
+        <div class="controls">
+            <div class="scene">
+                <div class="cube" id="diceCube">
+                    <div class="cube__face cube__face--1">1</div>
+                    <div class="cube__face cube__face--2">2</div>
+                    <div class="cube__face cube__face--3">3</div>
+                    <div class="cube__face cube__face--4">4</div>
+                    <div class="cube__face cube__face--5">5</div>
+                    <div class="cube__face cube__face--6">6</div>
+                </div>
+            </div>
+            
+            <button id="rollBtn" disabled>Warten...</button>
+        </div>
+
+        <div id="log-container"></div>
+        <div id="version-tag">V3.0 (Rooms)</div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
