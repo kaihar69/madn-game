@@ -6,7 +6,6 @@ body {
     justify-content: flex-start; 
     
     color: #333;
-    /* DAS IST DIE HINTERGRUNDFARBE (#e0e0e0) */
     background-color: #e0e0e0;
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px);
     background-size: 20px 20px;
@@ -46,7 +45,7 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 }
 .invite-btn { background-color: #2196F3; }
 
-/* --- BOARD --- */
+/* --- BOARD (MITTE) --- */
 .board-wrapper { 
     flex: 1 1 auto; 
     width: 100%;
@@ -81,7 +80,7 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
     background-color: #222; 
 }
 
-/* --- FOOTER --- */
+/* --- FOOTER (CONTROLS) --- */
 .controls { 
     flex: 0 0 auto; 
     width: 100%; 
@@ -103,23 +102,17 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
     margin-top: 10px;
 }
 
-/* --- UNSICHTBARER LOG TEXT (Tarnkappe) --- */
+/* --- LOG TEXT (Unsichtbar getarnt) --- */
 #log-container { 
     height: 25px; 
-    
-    /* Farbe = Hintergrundfarbe (#e0e0e0) */
-    color: #e0e0e0; 
-    
+    color: #e0e0e0; /* Farbe = Hintergrund */
     font-weight: bold; 
     text-align: center; 
     font-size: 1rem; 
     width: 100%; 
-    
-    /* Keine Schatten, sonst sieht man es doch */
     text-shadow: none; 
-    
     background: transparent;
-    user-select: none; /* Verhindert Markieren */
+    user-select: none;
 }
 
 /* --- ELEMENTE --- */
@@ -135,10 +128,18 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 .base-yellow, .target-yellow { background-color: rgba(251, 192, 45, 0.2); border: 1px solid #fbc02d; }
 .target-red, .target-blue, .target-green, .target-yellow { background-color: rgba(255,255,255,0.8); }
 
+/* --- FIGUREN (GPU BESCHLEUNIGT) --- */
 .piece { 
     width: 6.2%; height: 6.2%; border-radius: 50%; border: 2px solid white; 
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.5); position: absolute; z-index: 100; 
-    transition: left 0.5s ease-out, top 0.5s ease-out;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5); 
+    position: absolute; 
+    z-index: 100; 
+    
+    /* PERFORMANCE BOOSTER */
+    transform: translateZ(0); /* Zwingt Browser in GPU Modus */
+    will-change: left, top;   /* Reserviert Ressourcen für Bewegung */
+    transition: left 0.5s ease-in-out, top 0.5s ease-in-out; /* Weiche Bewegung */
+    
     display: flex; justify-content: center; align-items: center; 
 }
 .piece::after { content: ''; width: 30%; height: 30%; background-color: rgba(0,0,0,0.5); border-radius: 50%; }
