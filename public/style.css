@@ -6,6 +6,7 @@ body {
     justify-content: flex-start; 
     
     color: #333;
+    /* DAS IST DIE HINTERGRUNDFARBE (#e0e0e0) */
     background-color: #e0e0e0;
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px);
     background-size: 20px 20px;
@@ -45,7 +46,7 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 }
 .invite-btn { background-color: #2196F3; }
 
-/* --- BOARD (MITTE) --- */
+/* --- BOARD --- */
 .board-wrapper { 
     flex: 1 1 auto; 
     width: 100%;
@@ -80,7 +81,7 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
     background-color: #222; 
 }
 
-/* --- FOOTER (CONTROLS) --- */
+/* --- FOOTER --- */
 .controls { 
     flex: 0 0 auto; 
     width: 100%; 
@@ -102,23 +103,23 @@ h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
     margin-top: 10px;
 }
 
-/* --- DEZENTER STATUS TEXT (HIER GEÄNDERT) --- */
+/* --- UNSICHTBARER LOG TEXT (Tarnkappe) --- */
 #log-container { 
     height: 25px; 
     
-    /* 40% Transparentes Schwarz = Dezentes Grau */
-    color: rgba(0, 0, 0, 0.4); 
+    /* Farbe = Hintergrundfarbe (#e0e0e0) */
+    color: #e0e0e0; 
     
     font-weight: bold; 
     text-align: center; 
     font-size: 1rem; 
     width: 100%; 
     
-    /* Text-Shadow entfernt, damit es flacher/ruhiger wirkt */
+    /* Keine Schatten, sonst sieht man es doch */
     text-shadow: none; 
     
     background: transparent;
-    transition: color 0.3s ease; /* Sanfter Übergang falls sich Farbe mal ändert */
+    user-select: none; /* Verhindert Markieren */
 }
 
 /* --- ELEMENTE --- */
@@ -177,20 +178,10 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 }
 .big-btn.outline { background-color: transparent; border: 2px solid #2196F3; color: #2196F3; }
 
-.divider { 
-    margin: 30px 0; 
-    color: #aaa; font-size: 0.9rem; font-weight: bold; letter-spacing: 2px; 
-}
+.divider { margin: 30px 0; color: #aaa; font-size: 0.9rem; font-weight: bold; letter-spacing: 2px; }
 
-.join-area { 
-    display: flex; 
-    gap: 10px; 
-    width: 100%;
-}
-.join-area input, .join-area button {
-    flex: 1;
-    margin: 0 !important; 
-}
+.join-area { display: flex; gap: 10px; width: 100%; }
+.join-area input, .join-area button { flex: 1; margin: 0 !important; }
 
 #landing-msg { color: #d32f2f; margin-top: 10px; font-weight: bold; min-height: 20px;}
 
