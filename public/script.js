@@ -216,11 +216,13 @@ socket.on('turnUpdate', (activeColor) => {
 
 socket.on('gameLog', (msg) => {
     const logDiv = document.getElementById('log-container');
-    logDiv.innerText = msg;
-    setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
+    if(logDiv) {
+        logDiv.innerText = msg;
+        setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
+    }
 });
 
-// --- RENDER PIECES (6.2% FIX) ---
+// --- SMART RENDER SYSTEM (NUR NÖTIGE UPDATES) ---
 function renderPieces(players) {
     const activePieceIds = new Set();
     Object.values(players).forEach(player => {
@@ -242,19 +244,25 @@ function renderPieces(players) {
                 boardElement.appendChild(pieceEl);
             }
             if (amIPlaying && player.color === myColor) {
-                pieceEl.style.cursor = "pointer"; pieceEl.style.zIndex = 101; 
+                if(pieceEl.style.cursor !== "pointer") pieceEl.style.cursor = "pointer";
+                if(pieceEl.style.zIndex !== "101") pieceEl.style.zIndex = 101; 
             } else {
-                pieceEl.style.cursor = "default"; pieceEl.style.zIndex = 100;
+                if(pieceEl.style.cursor !== "default") pieceEl.style.cursor = "default";
+                if(pieceEl.style.zIndex !== "100") pieceEl.style.zIndex = 100;
             }
 
             const step = 100 / 11; 
             const offset = (step - 6.2) / 2;
             
-            const leftPercent = (coords.x * step) + offset;
-            const topPercent = (coords.y * step) + offset;
+            const newLeft = `${(coords.x * step) + offset}%`;
+            const newTop = `${(coords.y * step) + offset}%`;
 
-            pieceEl.style.left = `${leftPercent}%`;
-            pieceEl.style.top = `${topPercent}%`;
+            // HIER IST DER FIX:
+            // Wir prüfen, ob sich die Koordinaten geändert haben.
+            // Wenn nicht, lassen wir das Element in Ruhe.
+            // Das verhindert, dass laufende Animationen unterbrochen werden.
+            if (pieceEl.style.left !== newLeft) pieceEl.style.left = newLeft;
+            if (pieceEl.style.top !== newTop) pieceEl.style.top = newTop;
         });
     });
     const allDomPieces = document.querySelectorAll('.piece');
