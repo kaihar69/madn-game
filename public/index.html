@@ -28,17 +28,20 @@
     </div>
 
     <div id="game-view" style="display:none;">
-        <h1>Mensch ärgere dich nicht</h1>
         
-        <div id="header-info">
-            <span id="room-display">Raum: <span id="current-room-code">----</span></span> | 
-            <span id="my-status">...</span> | 
-            <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
-        </div>
+        <div class="top-section">
+            <h1>Mensch ärgere dich nicht</h1>
+            
+            <div id="header-info">
+                <span id="room-display">Raum: <span id="current-room-code">----</span></span> | 
+                <span id="my-status">...</span> | 
+                <span id="turn-indicator">Zug: <span id="current-player-name">...</span></span>
+            </div>
 
-        <div id="setup-controls">
-            <button id="startBtn" class="bot-btn" style="display:none;">Spiel Starten (+Bots)</button>
-            <button id="leaveBtn" class="invite-btn" style="background-color:#d32f2f;">Verlassen</button>
+            <div id="setup-controls">
+                <button id="startBtn" class="bot-btn" style="display:none;">Spiel Starten (+Bots)</button>
+                <button id="leaveBtn" class="invite-btn" style="background-color:#d32f2f;">Verlassen</button>
+            </div>
         </div>
 
         <div class="board-wrapper">
@@ -63,7 +66,7 @@
         </div>
 
         <div id="log-container"></div>
-        <div id="version-tag">V3.0 (Rooms)</div>
+        <div id="version-tag">V3.1 (Stable Layout)</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
