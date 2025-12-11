@@ -220,7 +220,7 @@ socket.on('gameLog', (msg) => {
     setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
 });
 
-// --- RENDER PIECES (KORRIGIERT FÜR 6.2% GRÖSSE) ---
+// --- RENDER PIECES (6.2% FIX) ---
 function renderPieces(players) {
     const activePieceIds = new Set();
     Object.values(players).forEach(player => {
@@ -247,11 +247,6 @@ function renderPieces(players) {
                 pieceEl.style.cursor = "default"; pieceEl.style.zIndex = 100;
             }
 
-            // POSITIONIERUNG:
-            // Spaltenbreite: 100 / 11 = 9.09%
-            // Figurbreite (CSS): 6.2%
-            // Offset: (9.09 - 6.2) / 2 = 1.445%
-            
             const step = 100 / 11; 
             const offset = (step - 6.2) / 2;
             
