@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- SOUNDS & MUSIK ---
+// --- SOUNDS ---
 const sounds = {
     roll: new Audio('/sounds/roll.mp3'),
     move: new Audio('/sounds/move.mp3'),
@@ -12,7 +12,7 @@ Object.values(sounds).forEach(s => s.volume = 0.5);
 // Hintergrundmusik
 const bgm = new Audio('/sounds/bgm.mp3');
 bgm.loop = true;
-bgm.volume = 0.2; // Leise
+bgm.volume = 0.2; 
 
 const musicBtn = document.getElementById('musicBtn');
 musicBtn.addEventListener('click', () => {
@@ -137,6 +137,30 @@ leaveBtn.addEventListener('click', () => {
 rollBtn.addEventListener('click', () => { socket.emit('rollDice'); });
 startBtn.addEventListener('click', () => { socket.emit('startGame'); });
 
+// --- EMOTE LISTENERS ---
+document.querySelectorAll('.emote-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        socket.emit('sendEmote', btn.innerText);
+    });
+});
+
+socket.on('emoteReceived', (emoji) => {
+    showFloatingEmoji(emoji);
+});
+
+function showFloatingEmoji(emoji) {
+    const el = document.createElement('div');
+    el.innerText = emoji;
+    el.classList.add('floating-emoji');
+    
+    // Leichter Random-Offset damit sie nicht perfekt stapeln
+    const randomX = Math.floor(Math.random() * 20) - 10;
+    el.style.marginLeft = `${randomX}px`;
+
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000); // Nach Animation löschen
+}
+
 // --- RECONNECT LOGIK ---
 socket.on('connect', () => {
     const storedToken = localStorage.getItem('madn_token');
@@ -156,7 +180,6 @@ socket.on('joinSuccess', (data) => {
     
     if (data.token) localStorage.setItem('madn_token', data.token);
 
-    // Musik Startversuch
     bgm.play().then(() => { musicBtn.innerText = "🔊"; }).catch(() => { musicBtn.innerText = "🔇"; });
 
     landingView.style.display = 'none';
@@ -241,7 +264,7 @@ socket.on('gameLog', (msg) => {
     }
 });
 
-// --- SMART RENDER SYSTEM (High Performance) ---
+// --- RENDER PIECES ---
 function renderPieces(players) {
     const activePieceIds = new Set();
     Object.values(players).forEach(player => {
@@ -276,7 +299,6 @@ function renderPieces(players) {
             const newLeft = `${(coords.x * step) + offset}%`;
             const newTop = `${(coords.y * step) + offset}%`;
 
-            // Nur updaten, wenn Position sich geändert hat (für smoothere Animation)
             if (pieceEl.style.left !== newLeft) pieceEl.style.left = newLeft;
             if (pieceEl.style.top !== newTop) pieceEl.style.top = newTop;
         });
