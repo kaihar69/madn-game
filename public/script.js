@@ -81,7 +81,7 @@ joinBtn.addEventListener('click', () => {
 startBtn.addEventListener('click', () => { socket.emit('startGame'); });
 
 // --- RECONNECT LOGIK ---
-// Wir verstecken erstmal alles, bis wir wissen, ob Rejoin klappt
+// UI verstecken bis Status klar ist
 joinBtn.style.display = 'none';
 nameInput.style.display = 'none';
 startBtn.style.display = 'none';
@@ -92,7 +92,6 @@ socket.on('connect', () => {
         console.log("Versuche Rejoin...");
         socket.emit('requestRejoin', storedToken);
     } else {
-        // Kein Token? Dann normale Lobby anzeigen
         showLobbyUI();
     }
 });
@@ -126,7 +125,6 @@ socket.on('serverStatus', (info) => {
         return;
     }
 
-    // Falls Rejoin fehlgeschlagen ist, Status hier updaten
     if (joinBtn.style.display !== 'none') {
         if (info.running) {
             joinBtn.disabled = true; joinBtn.innerText = "Spiel läuft..."; joinBtn.style.backgroundColor = "#999";
@@ -147,9 +145,7 @@ socket.on('joinSuccess', (data) => {
     currentPlayers = data.players;
     myColor = data.players[data.id].color;
     
-    if (data.token) {
-        localStorage.setItem('madn_token', data.token);
-    }
+    if (data.token) localStorage.setItem('madn_token', data.token);
 
     document.getElementById('my-status').innerText = `${data.players[data.id].name}`;
     document.getElementById('my-status').style.color = getHexColor(myColor);
@@ -158,16 +154,13 @@ socket.on('joinSuccess', (data) => {
     nameInput.style.display = 'none';
     startBtn.style.display = 'inline-block';
     
-    if (data.rejoining) {
-        // Wenn Spiel schon läuft, Button verstecken
-        startBtn.style.display = 'none'; 
-    }
+    if (data.rejoining) startBtn.style.display = 'none'; 
 });
 
 socket.on('joinError', (msg) => { alert(msg); });
 socket.on('gameStarted', () => { startBtn.style.display = 'none'; });
 
-// --- GAMEPLAY ---
+// --- GAMEPLAY & ANIMATION ---
 
 socket.on('updateBoard', (players) => { 
     currentPlayers = players;
@@ -224,36 +217,71 @@ socket.on('gameLog', (msg) => {
     setTimeout(() => { if(logDiv.innerText === msg) logDiv.innerText = ''; }, 3000);
 });
 
+// NEUE RENDER LOGIK: Absolute Positionierung & Wiederverwendung von Elementen
 function renderPieces(players) {
-    document.querySelectorAll('.piece').forEach(e => e.remove());
+    const activePieceIds = new Set();
+
     Object.values(players).forEach(player => {
         player.pieces.forEach((posIndex, pieceIndex) => {
-            let x, y;
-            if (posIndex === -1) {
-                x = basePositions[player.color][pieceIndex].x; y = basePositions[player.color][pieceIndex].y;
-            } else if (posIndex >= 100) {
-                const idx = posIndex - 100;
-                if(targetPositions[player.color][idx]) { x = targetPositions[player.color][idx].x; y = targetPositions[player.color][idx].y; }
-            } else {
-                if (pathMap[posIndex]) { x = pathMap[posIndex].x; y = pathMap[posIndex].y; }
-            }
-            if (x !== undefined && y !== undefined) {
-                const cell = document.getElementById(`cell-${x}-${y}`);
-                if (cell) {
-                    const piece = document.createElement('div');
-                    piece.classList.add('piece', player.color);
+            const pieceId = `piece-${player.color}-${pieceIndex}`;
+            activePieceIds.add(pieceId);
+
+            const coords = getCoordinates(posIndex, player.color, pieceIndex);
+            
+            let pieceEl = document.getElementById(pieceId);
+            if (!pieceEl) {
+                pieceEl = document.createElement('div');
+                pieceEl.id = pieceId;
+                pieceEl.classList.add('piece', player.color);
+                
+                pieceEl.onclick = () => { 
                     if (amIPlaying && player.color === myColor) {
-                        piece.onclick = () => { socket.emit('movePiece', { pieceIndex: pieceIndex }); };
-                        piece.style.cursor = "pointer";
-                    } else {
-                        piece.style.cursor = "default";
+                        socket.emit('movePiece', { pieceIndex: pieceIndex }); 
                     }
-                    cell.appendChild(piece);
-                }
+                };
+                boardElement.appendChild(pieceEl);
             }
+
+            if (amIPlaying && player.color === myColor) {
+                pieceEl.style.cursor = "pointer";
+                pieceEl.style.zIndex = 101; 
+            } else {
+                pieceEl.style.cursor = "default";
+                pieceEl.style.zIndex = 100;
+            }
+
+            // Umrechnung Grid (40px + 2px Gap) zu Pixeln
+            // Padding Board = 8px. Zelle = 40px. Gap = 2px.
+            // Formel: 8px (Rand) + (Koordinate * 42px)
+            const cellSize = 42; 
+            const boardPadding = 8;
+            
+            const pixelX = boardPadding + (coords.x * cellSize);
+            const pixelY = boardPadding + (coords.y * cellSize);
+
+            pieceEl.style.left = `${pixelX}px`;
+            pieceEl.style.top = `${pixelY}px`;
         });
     });
+
+    // Alte Figuren entfernen
+    const allDomPieces = document.querySelectorAll('.piece');
+    allDomPieces.forEach(el => {
+        if (!activePieceIds.has(el.id)) el.remove();
+    });
 }
+
+function getCoordinates(posIndex, color, pieceIndex) {
+    if (posIndex === -1) return basePositions[color][pieceIndex];
+    if (posIndex >= 100) {
+        const targetIdx = posIndex - 100;
+        if (targetPositions[color][targetIdx]) return targetPositions[color][targetIdx];
+        return basePositions[color][pieceIndex]; 
+    }
+    if (pathMap[posIndex]) return pathMap[posIndex];
+    return {x: 0, y: 0}; 
+}
+
 function getHexColor(name) {
     if(name === 'red') return '#d32f2f';
     if(name === 'blue') return '#1976d2';
