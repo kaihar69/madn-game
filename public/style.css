@@ -3,11 +3,11 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* Space-between drückt Header nach oben und Controls nach unten */
-    justify-content: space-between; 
+    justify-content: flex-start; /* Wir stapeln von oben nach unten */
     
     color: #333;
     background-color: #e0e0e0;
+    /* Hintergrundmuster dezent */
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px);
     background-size: 20px 20px;
     
@@ -17,21 +17,21 @@ body {
     touch-action: manipulation;
 }
 
-/* HEADER BEREICH */
+/* --- HEADER --- */
 .top-section {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 5px;
+    padding-top: 10px;
     z-index: 50;
-    flex-shrink: 0; /* Darf nicht schrumpfen */
-    min-height: 80px; /* Mindesthöhe reservieren */
+    flex: 0 0 auto; /* Feste Höhe, wächst nach Inhalt */
+    padding-bottom: 10px;
 }
 
-h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
+h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-align: center; }
 #header-info {
-    font-size: 0.9rem; margin-bottom: 5px; background: rgba(255,255,255,0.9);
+    font-size: 0.9rem; margin-bottom: 5px; background: rgba(255,255,255,0.8);
     padding: 5px 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
 }
 #turn-indicator, #my-status, #room-display { font-weight: bold; }
@@ -46,36 +46,34 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
 }
 .invite-btn { background-color: #2196F3; }
 
-/* BOARD BEREICH */
+/* --- BOARD (MITTE) --- */
 .board-wrapper { 
-    flex-grow: 1; /* Nimmt den ganzen Platz in der Mitte */
+    flex: 1 1 auto; /* Nimmt den restlichen Platz */
     width: 100%;
     display: flex; 
     justify-content: center; 
-    align-items: center; 
+    align-items: center; /* Vertikal mittig im freien Bereich */
     position: relative;
-    padding: 10px; /* Minimaler Abstand zum Rand */
     box-sizing: border-box;
+    /* Kleiner Mindestabstand zu Header und Footer */
+    padding: 10px 0; 
 }
 
 .board-container {
-    /* DIE MAGISCHE FORMEL: */
-    /* Nimm 95% der Bildschirmbreite (Handy-Modus) */
-    /* ABER: Sei niemals höher als "Gesamthöhe minus 220px" (Platz für Header/Footer) */
-    /* Wähle automatisch den kleineren Wert */
-    width: min(95vw, calc(100dvh - 220px));
-    height: min(95vw, calc(100dvh - 220px));
+    /* SICHERHEITSFORMEL: */
+    /* Breite = 95% vom Display (Handy) */
+    /* Höhe = Gesamthöhe - 280px (Platz für Header Oben + Würfel Unten) */
+    /* Wir nehmen den KLEINEREN Wert, damit es immer quadratisch bleibt */
+    width: min(95vw, calc(100dvh - 280px));
+    height: min(95vw, calc(100dvh - 280px));
     
-    box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
     border-radius: 8px;
     background-color: #111; 
     padding: 1%; 
     box-sizing: border-box;
     
-    /* Zentrierung für Grid Inhalt */
-    display: flex; 
-    justify-content: center; 
-    align-items: center;
+    display: flex; justify-content: center; align-items: center;
 }
 
 #board { 
@@ -88,20 +86,43 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
     background-color: #222; 
 }
 
-/* FOOTER BEREICH (Controls) */
+/* --- FOOTER (CONTROLS) --- */
 .controls { 
-    height: 140px; /* Feste Höhe reserviert */
+    flex: 0 0 auto; /* Feste Basisgröße */
     width: 100%; 
-    display: flex; flex-direction: column; 
-    align-items: center; justify-content: center;
-    gap: 15px;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: flex-end;
     z-index: 20; 
-    flex-shrink: 0;
-    padding-bottom: 10px;
-    background: linear-gradient(to top, rgba(224,224,224,1) 30%, rgba(224,224,224,0));
+    padding-bottom: 20px; /* Abstand zum absoluten Boden */
+    background: transparent; /* KEIN BALKEN MEHR */
+    min-height: 120px;
 }
 
-/* ZELLEN & STYLES */
+/* Container für Würfel und Button nebeneinander (auf Desktop schöner) */
+.control-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+/* LOGS (Jetzt sauber integriert) */
+#log-container { 
+    height: 25px; 
+    color: #d32f2f; 
+    font-weight: bold; 
+    text-align: center; 
+    font-size: 1rem; 
+    width: 100%; 
+    text-shadow: 0 0 5px rgba(255,255,255,0.8);
+    /* Keine Hintergrundfarbe mehr! */
+    background: transparent;
+}
+
+/* --- ELEMENTE --- */
 .cell { width: 100%; height: 100%; border-radius: 50%; background-color: #333; }
 .path { background-color: white; border: 1px solid #999; }
 .start-field-red { background-color: #ffebee; border: 2px solid #d32f2f; }
@@ -114,7 +135,6 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
 .base-yellow, .target-yellow { background-color: rgba(251, 192, 45, 0.2); border: 1px solid #fbc02d; }
 .target-red, .target-blue, .target-green, .target-yellow { background-color: rgba(255,255,255,0.8); }
 
-/* FIGUREN GRÖSSE (6.2%) */
 .piece { 
     width: 6.2%; height: 6.2%; border-radius: 50%; border: 2px solid white; 
     box-shadow: 2px 2px 5px rgba(0,0,0,0.5); position: absolute; z-index: 100; 
@@ -126,23 +146,15 @@ h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
 .piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
 
 button#rollBtn { 
-    padding: 12px 50px; font-size: 1.2rem; cursor: pointer; 
+    padding: 12px 40px; font-size: 1.1rem; cursor: pointer; 
     background-color: #333; color: white; border: none; border-radius: 30px; 
     box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
 }
 button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-allowed; }
 
-/* LOGS (Exakt über den Controls positioniert) */
-#log-container { 
-    height: 30px; color: #d32f2f; font-weight: bold; text-align: center; 
-    font-size: 1rem; position: absolute; 
-    bottom: 145px; /* Knapp über den Controls (140px) */
-    width: 100%; pointer-events: none; z-index: 100; 
-    text-shadow: 0 0 5px rgba(255,255,255,1); background: rgba(255,255,255,0.4);
-}
 #version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; }
 
-/* LANDING PAGE */
+/* LANDING PAGE OVERLAY */
 #landing-view {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
@@ -150,8 +162,7 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 }
 .landing-card {
     background: white; padding: 30px; border-radius: 15px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center;
-    width: 90%; max-width: 350px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; width: 90%; max-width: 350px;
 }
 .landing-card h1 { margin-bottom: 10px; font-size: 1.5rem; }
 .landing-card input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; text-align: center; box-sizing: border-box; }
@@ -161,33 +172,33 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 #landing-msg { color: #d32f2f; margin-top: 10px; font-weight: bold; min-height: 20px;}
 
 /* 3D WÜRFEL */
-.scene { width: 60px; height: 60px; perspective: 400px; }
-.cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-30px); transition: transform 0.6s ease-out; }
-.cube__face { position: absolute; width: 60px; height: 60px; border: 2px solid rgba(0,0,0,0.1); line-height: 60px; font-size: 28px; font-weight: bold; text-align: center; border-radius: 8px; background: white; color: #333; }
+.scene { width: 50px; height: 50px; perspective: 400px; }
+.cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-25px); transition: transform 0.6s ease-out; }
+.cube__face { position: absolute; width: 50px; height: 50px; border: 2px solid rgba(0,0,0,0.1); line-height: 50px; font-size: 24px; font-weight: bold; text-align: center; border-radius: 8px; background: white; color: #333; }
 .cube.red .cube__face { background: #d32f2f; color: white; }
 .cube.blue .cube__face { background: #1976d2; color: white; }
 .cube.green .cube__face { background: #388e3c; color: white; }
 .cube.yellow .cube__face { background: #fbc02d; color: #333; }
-.cube__face--1 { transform: rotateY(0deg) translateZ(30px); } 
-.cube__face--2 { transform: rotateY(90deg) translateZ(30px); } 
-.cube__face--3 { transform: rotateY(180deg) translateZ(30px); } 
-.cube__face--4 { transform: rotateY(-90deg) translateZ(30px); } 
-.cube__face--5 { transform: rotateX(90deg) translateZ(30px); } 
-.cube__face--6 { transform: rotateX(-90deg) translateZ(30px); }
-.cube.show-1 { transform: translateZ(-30px) rotateY(0deg); } 
-.cube.show-2 { transform: translateZ(-30px) rotateY(-90deg); } 
-.cube.show-3 { transform: translateZ(-30px) rotateY(-180deg); } 
-.cube.show-4 { transform: translateZ(-30px) rotateY(90deg); } 
-.cube.show-5 { transform: translateZ(-30px) rotateX(-90deg); } 
-.cube.show-6 { transform: translateZ(-30px) rotateX(90deg); }
+.cube__face--1 { transform: rotateY(0deg) translateZ(25px); } 
+.cube__face--2 { transform: rotateY(90deg) translateZ(25px); } 
+.cube__face--3 { transform: rotateY(180deg) translateZ(25px); } 
+.cube__face--4 { transform: rotateY(-90deg) translateZ(25px); } 
+.cube__face--5 { transform: rotateX(90deg) translateZ(25px); } 
+.cube__face--6 { transform: rotateX(-90deg) translateZ(25px); }
+.cube.show-1 { transform: translateZ(-25px) rotateY(0deg); } 
+.cube.show-2 { transform: translateZ(-25px) rotateY(-90deg); } 
+.cube.show-3 { transform: translateZ(-25px) rotateY(-180deg); } 
+.cube.show-4 { transform: translateZ(-25px) rotateY(90deg); } 
+.cube.show-5 { transform: translateZ(-25px) rotateX(-90deg); } 
+.cube.show-6 { transform: translateZ(-25px) rotateX(90deg); }
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
 
-/* LANDSCAPE TWEAK */
+/* Landscape Handy Optimierung */
 @media (max-height: 500px) and (orientation: landscape) {
     .top-section { display: none; }
-    /* Im Landscape auf dem Handy mehr Platz für Board */
     .board-container { width: min(90vw, calc(100dvh - 20px)); height: min(90vw, calc(100dvh - 20px)); }
-    .controls { position: absolute; right: 10px; top: 50%; width: 100px; height: auto; transform: translateY(-50%); background: none; }
-    #log-container { bottom: 10px; width: 70%; left: 0; }
+    .controls { position: absolute; right: 10px; top: 50%; width: 100px; height: auto; transform: translateY(-50%); padding: 0; min-height: 0; }
+    .control-row { flex-direction: column; gap: 10px; }
+    #log-container { position: absolute; bottom: 10px; left: 10px; text-align: left; width: 50%; }
 }
