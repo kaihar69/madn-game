@@ -1,21 +1,179 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Flexbox Layout für die ganze Seite */
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: space-between; /* Verteilt Oben/Mitte/Unten */
+    
     color: #333;
     background-color: #e0e0e0;
     background-image: radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px);
     background-size: 20px 20px;
+    
     margin: 0; padding: 0; 
-    height: 100dvh; width: 100vw;
+    /* WICHTIG: 100dvh verhindert Scrollen auf Handys mit Adressleiste */
+    height: 100dvh; 
+    width: 100vw;
     overflow: hidden; 
     touch-action: manipulation;
 }
 
-/* LANDING PAGE */
+/* --- 1. DER HEADER (Oben) --- */
+/* Wrapper für alles oben, damit wir es gruppieren können */
+.top-section {
+    flex: 0 0 auto; /* Darf nicht schrumpfen, wächst nach Bedarf */
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 5px;
+    z-index: 50;
+}
+
+h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; }
+#header-info {
+    font-size: 0.9rem; margin-bottom: 5px; background: rgba(255,255,255,0.9);
+    padding: 5px 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+}
+#turn-indicator, #my-status, #room-display { font-weight: bold; }
+#current-room-code { color: #2196F3; font-family: monospace; font-size: 1rem; }
+
+#setup-controls {
+    display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; 
+}
+.bot-btn, .invite-btn {
+    background-color: #4CAF50; color: white; border: none; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+}
+.invite-btn { background-color: #2196F3; }
+
+/* --- 2. DIE MITTE (Board) --- */
+.board-wrapper { 
+    /* Nimmt den gesamten restlichen Platz ein! */
+    flex: 1 1 auto; 
+    width: 100%;
+    
+    /* Zentriert das Board perfekt in diesem freien Bereich */
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    
+    position: relative;
+    overflow: hidden; /* Damit nichts rausragt */
+    
+    /* Minimaler Sicherheitsabstand zum Rand */
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.board-container {
+    /* TRICK: Das Board ist quadratisch (aspect-ratio: 1/1).
+       Es versucht 100% Höhe oder Breite zu füllen, 
+       aber 'contain' sorgt dafür, dass es nirgendwo überlappt. */
+    aspect-ratio: 1 / 1;
+    
+    /* Es darf maximal so groß sein wie der Wrapper (minus Padding) */
+    max-width: 100%;
+    max-height: 100%;
+    
+    /* Aber auf dem Handy soll es schon die Breite füllen */
+    width: auto;
+    height: auto;
+    
+    /* Fallback für Browser die aspect-ratio schlecht können: */
+    min-height: 0; 
+    min-width: 0;
+
+    /* Styling */
+    box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
+    border-radius: 8px;
+    background-color: #111; 
+    padding: 1%; 
+    box-sizing: border-box;
+    
+    /* Flexibel in beide Richtungen skalieren */
+    display: flex;
+}
+
+/* Auf Desktop begrenzen wir die Maximalgröße, damit man sich nicht den Hals verrenkt */
+@media (min-width: 1024px) {
+    .board-container {
+        max-height: 85vh; /* Nie höher als 85% der Screenhöhe */
+    }
+}
+
+#board { 
+    width: 100%; height: 100%;
+    position: relative; 
+    display: grid; 
+    grid-template-columns: repeat(11, 1fr); 
+    grid-template-rows: repeat(11, 1fr); 
+    gap: 0.5%; 
+    background-color: #222; 
+}
+
+/* --- 3. DER FOOTER (Controls / Würfel) --- */
+.controls { 
+    flex: 0 0 auto; /* Feste Größe, schrumpft nicht */
+    height: 140px; /* Genug Platz für Würfel + Button reservieren */
+    width: 100%; 
+    
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; /* Zentriert Würfel im unteren Bereich */
+    gap: 15px;
+    
+    z-index: 20; 
+    padding-bottom: 10px; /* Abstand zum absoluten Bildschirmrand unten */
+    background: linear-gradient(to top, rgba(224,224,224,1) 20%, rgba(224,224,224,0)); /* Leichter Fade */
+}
+
+/* ZELLEN & FIGUREN STYLES (Unverändert gut) */
+.cell { width: 100%; height: 100%; border-radius: 50%; background-color: #333; }
+.path { background-color: white; border: 1px solid #999; }
+.start-field-red { background-color: #ffebee; border: 2px solid #d32f2f; }
+.start-field-blue { background-color: #e3f2fd; border: 2px solid #1976d2; }
+.start-field-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
+.start-field-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
+.base-red, .target-red { background-color: rgba(211, 47, 47, 0.2); border: 1px solid #d32f2f; }
+.base-blue, .target-blue { background-color: rgba(25, 118, 210, 0.2); border: 1px solid #1976d2; }
+.base-green, .target-green { background-color: rgba(56, 142, 60, 0.2); border: 1px solid #388e3c; }
+.base-yellow, .target-yellow { background-color: rgba(251, 192, 45, 0.2); border: 1px solid #fbc02d; }
+.target-red, .target-blue, .target-green, .target-yellow { background-color: rgba(255,255,255,0.8); }
+
+.piece { 
+    width: 6.2%; height: 6.2%; border-radius: 50%; border: 2px solid white; 
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5); position: absolute; z-index: 100; 
+    transition: left 0.5s ease-out, top 0.5s ease-out;
+    display: flex; justify-content: center; align-items: center; 
+}
+.piece::after { content: ''; width: 30%; height: 30%; background-color: rgba(0,0,0,0.5); border-radius: 50%; }
+.piece.red { background-color: #d32f2f; } .piece.blue { background-color: #1976d2; } 
+.piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
+
+/* CONTROLS ELEMENTS */
+button#rollBtn { 
+    padding: 12px 50px; font-size: 1.2rem; cursor: pointer; 
+    background-color: #333; color: white; border: none; border-radius: 30px; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+}
+button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-allowed; }
+
+/* LOGS (Jetzt relativ zum Board wrapper oder absolut über controls) */
+#log-container { 
+    height: 30px; color: #d32f2f; font-weight: bold; text-align: center; 
+    font-size: 1rem; position: absolute; 
+    bottom: 140px; /* Exakt über dem Footer Bereich */
+    width: 100%; pointer-events: none; z-index: 100; 
+    text-shadow: 0 0 5px rgba(255,255,255,1); background: rgba(255,255,255,0.4);
+}
+#version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; }
+
+/* LANDING PAGE (Overlay) */
 #landing-view {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
     display: flex; justify-content: center; align-items: center; z-index: 2000;
 }
@@ -38,121 +196,7 @@ body {
 .join-area { display: flex; gap: 5px; }
 #landing-msg { color: #d32f2f; margin-top: 10px; font-weight: bold; min-height: 20px;}
 
-/* GAME HEADER */
-h1 { margin: 5px 0 2px 0; font-size: 1.1rem; text-align: center; flex-shrink: 0; }
-#header-info {
-    font-size: 0.9rem; margin-bottom: 5px; background: rgba(255,255,255,0.9);
-    padding: 5px 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-    z-index: 50; flex-shrink: 0;
-}
-#turn-indicator, #my-status, #room-display { font-weight: bold; }
-#current-room-code { color: #2196F3; font-family: monospace; font-size: 1rem; }
-
-#setup-controls {
-    display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; 
-    z-index: 50; flex-shrink: 0;
-}
-.bot-btn, .invite-btn {
-    background-color: #4CAF50; color: white; border: none; padding: 6px 12px;
-    border-radius: 4px; cursor: pointer; font-size: 0.8rem;
-}
-.invite-btn { background-color: #2196F3; }
-
-/* --- RESPONSIVE BOARD --- */
-.board-wrapper { 
-    flex-grow: 1; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    width: 100%; 
-    position: relative;
-}
-
-.board-container {
-    width: 90vmin; 
-    height: 90vmin;
-    max-width: 600px; 
-    max-height: 600px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
-    border-radius: 8px;
-    background-color: #111; 
-    padding: 1%; 
-    box-sizing: border-box;
-}
-
-#board { 
-    width: 100%;
-    height: 100%;
-    position: relative; 
-    display: grid; 
-    grid-template-columns: repeat(11, 1fr); 
-    grid-template-rows: repeat(11, 1fr); 
-    gap: 0.5%; 
-    background-color: #222; 
-}
-
-/* ZELLEN */
-.cell { 
-    width: 100%; 
-    height: 100%; 
-    border-radius: 50%; 
-    background-color: #333; 
-}
-
-.path { background-color: white; border: 1px solid #999; }
-.start-field-red { background-color: #ffebee; border: 2px solid #d32f2f; }
-.start-field-blue { background-color: #e3f2fd; border: 2px solid #1976d2; }
-.start-field-green { background-color: #e8f5e9; border: 2px solid #388e3c; }
-.start-field-yellow { background-color: #fffde7; border: 2px solid #fbc02d; }
-.base-red, .target-red { background-color: rgba(211, 47, 47, 0.2); border: 1px solid #d32f2f; }
-.base-blue, .target-blue { background-color: rgba(25, 118, 210, 0.2); border: 1px solid #1976d2; }
-.base-green, .target-green { background-color: rgba(56, 142, 60, 0.2); border: 1px solid #388e3c; }
-.base-yellow, .target-yellow { background-color: rgba(251, 192, 45, 0.2); border: 1px solid #fbc02d; }
-.target-red, .target-blue, .target-green, .target-yellow { background-color: rgba(255,255,255,0.8); }
-
-/* FIGUREN (KORRIGIERT: 6.2% statt 80%) */
-.piece { 
-    width: 6.2%; 
-    height: 6.2%; 
-    border-radius: 50%; 
-    border: 2px solid white; 
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.5); 
-    
-    position: absolute; 
-    z-index: 100; 
-    transition: left 0.5s ease-out, top 0.5s ease-out;
-    display: flex; justify-content: center; align-items: center; 
-}
-.piece::after { content: ''; width: 30%; height: 30%; background-color: rgba(0,0,0,0.5); border-radius: 50%; }
-.piece.red { background-color: #d32f2f; } .piece.blue { background-color: #1976d2; } 
-.piece.green { background-color: #388e3c; } .piece.yellow { background-color: #fbc02d; }
-
-/* CONTROLS (Würfel) */
-.controls { 
-    height: 120px; 
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    width: 100%; z-index: 20; flex-shrink: 0;
-    gap: 10px;
-    padding-bottom: 20px; 
-}
-
-button#rollBtn { 
-    padding: 12px 50px; font-size: 1.2rem; cursor: pointer; 
-    background-color: #333; color: white; border: none; border-radius: 30px; 
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
-}
-button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-allowed; }
-
-/* LOGS */
-#log-container { 
-    height: 30px; color: #d32f2f; font-weight: bold; text-align: center; 
-    font-size: 1rem; position: absolute; bottom: 85px; 
-    width: 100%; pointer-events: none; z-index: 100; 
-    text-shadow: 0 0 5px rgba(255,255,255,1); background: rgba(255,255,255,0.4);
-}
-#version-tag { position: fixed; bottom: 2px; right: 5px; font-size: 0.6rem; color: #999; }
-
-/* Würfel 3D */
+/* WÜRFEL 3D */
 .scene { width: 60px; height: 60px; perspective: 400px; }
 .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-30px); transition: transform 0.6s ease-out; }
 .cube__face { position: absolute; width: 60px; height: 60px; border: 2px solid rgba(0,0,0,0.1); line-height: 60px; font-size: 28px; font-weight: bold; text-align: center; border-radius: 8px; background: white; color: #333; }
@@ -175,7 +219,7 @@ button:disabled { background-color: #999 !important; opacity: 0.7; cursor: not-a
 .cube.rolling { animation: tumble 0.4s infinite linear; }
 @keyframes tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(0); } 100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
 
+/* LANDSCAPE MODE HANDY: Header ausblenden für mehr Platz */
 @media (max-height: 500px) and (orientation: landscape) {
-    h1, #header-info { display: none; }
-    .board-container { width: 85vmin; height: 85vmin; }
+    .top-section { display: none; }
 }
