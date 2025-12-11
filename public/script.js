@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- SOUNDS ---
+// --- SOUNDS & MUSIK ---
 const sounds = {
     roll: new Audio('/sounds/roll.mp3'),
     move: new Audio('/sounds/move.mp3'),
@@ -8,6 +8,22 @@ const sounds = {
     win:  new Audio('/sounds/win.mp3')
 };
 Object.values(sounds).forEach(s => s.volume = 0.5);
+
+// Hintergrundmusik
+const bgm = new Audio('/sounds/bgm.mp3');
+bgm.loop = true;
+bgm.volume = 0.2; // Leise
+
+const musicBtn = document.getElementById('musicBtn');
+musicBtn.addEventListener('click', () => {
+    if (bgm.paused) {
+        bgm.play().catch(e => console.log("Audio Error:", e));
+        musicBtn.innerText = "🔊";
+    } else {
+        bgm.pause();
+        musicBtn.innerText = "🔇";
+    }
+});
 
 // --- KONFIGURATION ---
 const pathMap = [
@@ -140,6 +156,9 @@ socket.on('joinSuccess', (data) => {
     
     if (data.token) localStorage.setItem('madn_token', data.token);
 
+    // Musik Startversuch
+    bgm.play().then(() => { musicBtn.innerText = "🔊"; }).catch(() => { musicBtn.innerText = "🔇"; });
+
     landingView.style.display = 'none';
     gameView.style.display = 'block';
     
@@ -222,7 +241,7 @@ socket.on('gameLog', (msg) => {
     }
 });
 
-// --- SMART RENDER SYSTEM (NUR NÖTIGE UPDATES) ---
+// --- SMART RENDER SYSTEM (High Performance) ---
 function renderPieces(players) {
     const activePieceIds = new Set();
     Object.values(players).forEach(player => {
@@ -257,10 +276,7 @@ function renderPieces(players) {
             const newLeft = `${(coords.x * step) + offset}%`;
             const newTop = `${(coords.y * step) + offset}%`;
 
-            // HIER IST DER FIX:
-            // Wir prüfen, ob sich die Koordinaten geändert haben.
-            // Wenn nicht, lassen wir das Element in Ruhe.
-            // Das verhindert, dass laufende Animationen unterbrochen werden.
+            // Nur updaten, wenn Position sich geändert hat (für smoothere Animation)
             if (pieceEl.style.left !== newLeft) pieceEl.style.left = newLeft;
             if (pieceEl.style.top !== newTop) pieceEl.style.top = newTop;
         });
